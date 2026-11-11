@@ -58,6 +58,21 @@ Colunas: `Kit; Grupos; Descrição; Condição; Valor; Código produto; Qtd por 
 - Condição: `%`, `R$`, `Preço final` ou `Manual` (em Manual, use a coluna "Preço promo item").
 - Kit com nome já existente é atualizado e a composição é substituída pela do arquivo.
 
+## Produtos: seleção em lote e promoção
+
+- Marque os produtos (ou "selecionar todos" do filtro) e use a barra de ações: Fora de linha, Ativar,
+  Mover para coleção, ★ Promoção / campanha, Remover promoção, Excluir. Filtro de status: ativos,
+  fora de linha, em promoção, sem custo, sem imagem, estoque zerado.
+- Promoção: selo (ex.: Black Friday), preço promocional opcional (de/por) e período. O servidor
+  cobra o preço promocional só dentro do período. No catálogo: selo no card, preço riscado,
+  produtos em promoção primeiro, botão "★ Promoções" e vitrine na Home.
+
+## Álbum Mesa Posta
+
+Admin → **Álbum Mesa Posta**: álbuns com fotos por URL (uma por linha), legendas, capa, ordem e
+coleção relacionada. O cliente vê a área "Mesa Posta" com visualizador em tela cheia
+(setas, teclado, deslizar no celular) e atalho para os produtos da coleção.
+
 ## Vídeos / Apresentação
 
 Admin → **Vídeos / Apresentação** → "+ Novo vídeo / GIF": cole o link (YouTube, inclusive Shorts e "não listado";

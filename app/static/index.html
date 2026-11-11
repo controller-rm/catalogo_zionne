@@ -617,6 +617,47 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 .cartItem .kitTag{display:inline-block;font-size:8px;background:#fbece8;color:#a8452f;border-radius:999px;padding:2px 6px;margin-left:5px;font-weight:800;vertical-align:middle}
 .cartItem .comps{display:block;font-size:9px;color:#7b7468;margin-top:3px;line-height:1.5}
 .orderItems tr.comp td{color:#7b7468;font-size:9px;padding-top:2px;padding-bottom:2px;border-bottom:0}
+/* seleção em lote / promoção */
+.bulkBar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#0b4b37;color:#fff;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:12px}
+.bulkBar b{margin-right:6px}.bulkBar .btn{padding:7px 10px;font-size:11px}.bulkBar .link{color:#e3c27e;margin-left:auto}
+.adminTable tr.sel td{background:#eef6ea}.adminTable tr.offRow td{opacity:.62}
+.promoBox{margin-top:14px;border:2px solid #e9c7bd;background:#fff6f3;border-radius:12px;padding:12px}
+.promoBadge{position:absolute;left:10px;top:10px;z-index:2;background:#a8452f;color:#fff;font-weight:800;font-size:10px;letter-spacing:.04em;border-radius:999px;padding:5px 9px;box-shadow:0 5px 12px rgba(0,0,0,.18);text-transform:uppercase}
+.product{position:relative}.product.promo{border-color:#e2a99b;box-shadow:0 0 0 2px rgba(168,69,47,.10)}
+.product .productImg{position:relative}
+.priceOld{font-size:11px;color:#8a8379;text-decoration:line-through;margin-right:6px}
+.pctOff{font-size:9px;font-weight:800;color:#a8452f;background:#fbece8;border-radius:999px;padding:2px 6px;margin-left:5px}
+.promoChip{border:1px solid #e2a99b;background:#fff6f3;color:#a8452f;border-radius:999px;padding:9px 14px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap}
+.promoChip.on{background:#a8452f;color:#fff;border-color:#a8452f}
+.promoArea{margin:20px 0 6px}.promoRow{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,220px);gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory}
+.promoCard{scroll-snap-align:start;background:#fff;border:1px solid #e9c7bd;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.promoCard .pImg{height:150px;background:#f6f2ea;display:flex;align-items:center;justify-content:center;cursor:zoom-in}.promoCard .pImg img{width:100%;height:100%;object-fit:contain;padding:8px}
+.promoCard .pBody{padding:10px;display:flex;flex-direction:column;gap:5px;flex:1}.promoCard .pName{font-size:11px;font-weight:700;line-height:1.3;min-height:28px}
+.promoCard .pPrice b{font-size:17px;color:#0d4d36}.promoCard button{margin-top:auto;border:0;background:#0b4b37;color:#fff;border-radius:8px;padding:8px;font-weight:800;font-size:11px;cursor:pointer}
+/* álbum mesa posta */
+.albumGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.albumCard{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.2s}
+.albumCard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.albumCover{position:relative;height:220px;background:#eee8dc}.albumCover img{width:100%;height:100%;object-fit:cover}
+.albumCount{position:absolute;right:10px;bottom:10px;background:rgba(7,40,28,.82);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:5px 9px}
+.albumStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#fff;height:58px}.albumStrip img{width:100%;height:100%;object-fit:cover}
+.albumBody{padding:13px 15px}.albumBody h3{margin:4px 0;font-family:Georgia,serif;font-weight:500;font-size:20px;color:#0b4b37}.albumBody p{margin:0 0 6px;font-size:11.5px;color:#5d655e;line-height:1.5}
+.albumViewer{position:fixed;inset:0;z-index:300;background:rgba(6,20,15,.96);display:none;flex-direction:column;color:#fff}
+.albumViewer.on{display:flex}
+.avTop{display:flex;justify-content:space-between;align-items:center;padding:12px 18px}.avTop #avTitle b{font-family:Georgia,serif;font-weight:500;font-size:20px;margin-right:12px}.avTop #avTitle span{font-size:12px;opacity:.7}
+.avTop button{background:rgba(255,255,255,.12);border:0;color:#fff;font-size:24px;width:42px;height:42px;border-radius:50%;cursor:pointer}
+.avStage{flex:1;display:grid;grid-template-columns:64px 1fr 64px;align-items:center;min-height:0;padding:0 8px}
+.avStage{overflow:hidden}.avStage img{max-width:100%;max-height:calc(100vh - 230px);margin:auto;object-fit:contain;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.avNav{background:rgba(255,255,255,.1);border:0;color:#fff;font-size:38px;width:52px;height:52px;border-radius:50%;cursor:pointer;justify-self:center}.avNav:hover{background:rgba(255,255,255,.22)}
+.avCaption{text-align:center;padding:10px 18px 4px;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:8px}.avCaption .btn{background:#e3c27e;color:#2d230d;border:0}
+.avThumbs{display:flex;gap:6px;overflow-x:auto;padding:10px 18px 16px;justify-content:safe center}
+.avThumbs img{height:62px;width:88px;object-fit:cover;border-radius:6px;opacity:.5;cursor:pointer;border:2px solid transparent;flex:none}.avThumbs img.on{opacity:1;border-color:#e3c27e}
+.afPhotos{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:60vh;overflow:auto;padding-right:4px}
+.afPhoto{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.afPhoto.cover{border:2px solid #c9a35c}
+.afPhoto img,.afErr{width:100%;height:120px;object-fit:cover;display:block;cursor:zoom-in}.afErr{display:flex;align-items:center;justify-content:center;color:#a34b44;font-size:11px;background:#fff5f3}
+.afCtl{padding:6px;display:flex;flex-direction:column;gap:5px}.afCtl input{border:1px solid var(--line);border-radius:6px;padding:5px;font-size:10.5px}
+.afCtl div{display:flex;gap:4px}.afCtl button{flex:1;border:1px solid var(--line);background:#faf8f3;border-radius:6px;padding:4px;cursor:pointer;font-size:12px}.afCtl button.on{background:#c9a35c;color:#fff;border-color:#c9a35c}
+@media(max-width:760px){.avStage{grid-template-columns:40px 1fr 40px}.avNav{width:38px;height:38px;font-size:28px}.albumCover{height:180px}}
 /* vídeos / apresentação */
 .mediaArea{display:grid;gap:16px;margin:18px 0 4px}
 .mediaCard{display:grid;grid-template-columns:1.45fr 1fr;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
@@ -665,7 +706,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 .chg{font-size:10px;color:#7b7468}.chg b{color:#1f5f8b}
 @media(max-width:760px){.kitBanners{grid-template-columns:1fr}.kitBanner,.kitBanners.single .kitBanner{grid-template-columns:1fr;min-height:0}.kbPic{height:190px;order:-1}.kbText:after{display:none}.kbText{padding:20px}}
 @media(max-width:900px){.kitEditor{grid-template-columns:1fr}.simGrid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){.side:nth-child(n+7){display:none}.side:nth-child(6){display:flex!important}}.tag.red{background:#fbe9e7;color:#a34b44}
+@media(max-width:760px){.side:nth-child(n+8){display:none}.side:nth-child(6),.side:nth-child(7){display:flex!important}.side{font-size:7.5px!important}}.tag.red{background:#fbe9e7;color:#a34b44}
 </style>
 </head>
 <body>
@@ -691,7 +732,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 <header class="topbar">
  <div class="brand" id="brandClick"><img src="/static/img/logo.png"></div>
  <div class="topsearch"><input id="topSearch" placeholder="Buscar produto, coleção ou código..." oninput="syncSearch(this.value)"><span>⌕</span></div>
- <nav class="topnav"><button onclick="goto('catalog')">Catálogo</button><button onclick="goto('collections')">Coleções</button><button onclick="goto('kitsArea')">Kits</button><button onclick="goto('orders')">Meus Pedidos <span id="topOrders" style="background:#d7dfbb;color:#294a33;padding:3px 6px;border-radius:999px;font-size:9px;margin-left:4px">0</span></button></nav>
+ <nav class="topnav"><button onclick="goto('catalog')">Catálogo</button><button onclick="goto('collections')">Coleções</button><button onclick="goto('kitsArea')">Kits</button><button id="topAlbum" onclick="goto('albumArea')" style="display:none">Mesa Posta</button><button onclick="goto('orders')">Meus Pedidos <span id="topOrders" style="background:#d7dfbb;color:#294a33;padding:3px 6px;border-radius:999px;font-size:9px;margin-left:4px">0</span></button></nav>
  <div class="topright"><button class="cartbtn" onclick="openCart()">🛒<span id="cartCount" class="bubble">0</span></button><button class="mobileLogout" onclick="logoutCatalog()">Sair</button><div class="clientTop"><b id="clientNameTop"></b><small id="validTop"></small></div></div>
 </header>
 <div class="workspace">
@@ -700,6 +741,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
   <button class="side" onclick="goto('catalog',this)"><i>▣</i>Catálogo</button>
   <button class="side" onclick="goto('collections',this)"><i>♧</i>Coleções</button>
   <button class="side" onclick="goto('kitsArea',this)"><i>✦</i>Kits</button>
+  <button id="sideAlbum" class="side" onclick="goto('albumArea',this)" style="display:none"><i>▦</i>Mesa Posta</button>
   <button class="side" onclick="openCart()"><i>▤</i>Meu Pedido<span id="sideCart" class="scount">0</span></button>
   <button class="side" onclick="goto('orders',this)"><i>▧</i>Meus Pedidos<span id="sideOrders" class="scount">0</span></button>
   <button class="side" onclick="goto('orders',this)"><i>▥</i>Meus PDFs</button>
@@ -724,6 +766,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
    <section id="kitBanners" class="kitBanners hidden"></section>
    <div id="heroBanner" class="hero"><div class="heroShade"></div><div class="heroText"><h1 id="heroTitle"></h1><p id="heroSubtitle"></p><button id="heroButton" onclick="goto('collections')"></button></div></div>
    <section id="mediaArea" class="mediaArea hidden"></section>
+   <section id="promoArea" class="promoArea hidden"></section>
    <div class="homeEditorialGrid">
     <section id="noticesArea" class="noticeArea editorialPanel">
      <div class="sectionHead editorialHead"><div><h2 id="noticesTitle">Avisos e novidades</h2><p>Eventos, lançamentos e comunicados Zionne.</p></div><button class="link" onclick="showAllNotices()">Ver todos →</button></div>
@@ -741,10 +784,14 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
     <div class="sectionHead"><div><h2>Kits promocionais</h2><p>Combinações prontas com preço especial de campanha.</p></div></div>
     <div id="kitCards" class="kitsGrid"></div>
    </section>
+   <section id="albumArea" class="kitArea hidden">
+    <div class="sectionHead"><div><h2>Mesa Posta — álbum de inspirações</h2><p>Ambientações reais com as coleções Zionne para inspirar sua vitrine e seus clientes.</p></div></div>
+    <div id="albumCards" class="albumGrid"></div>
+   </section>
   </section>
   <section id="catalog" style="margin-top:28px">
    <div class="sectionHead"><div><h2>Catálogo de produtos</h2><p>Produtos disponíveis para sua tabela comercial.</p></div></div>
-   <div class="controls"><input id="search" placeholder="Pesquisar produto ou código" oninput="renderProducts()"><select id="collectionFilter" onchange="renderProducts()"><option value="">Todas as coleções</option></select></div>
+   <div class="controls"><input id="search" placeholder="Pesquisar produto ou código" oninput="renderProducts()"><select id="collectionFilter" onchange="renderProducts()"><option value="">Todas as coleções</option></select><button id="promoChip" class="promoChip hidden" onclick="togglePromoChip()">★ Promoções</button></div>
    <div class="collectionSummaryLegend"><span>Resumo da seleção por coleção</span><span>Atualizado automaticamente pelo carrinho</span></div>
    <div id="collectionPurchaseSummary" class="collectionPurchaseSummary"></div>
    <div id="products" class="products"></div>
@@ -772,6 +819,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
    <button onclick="adminTab('collectionsAdmin',this)">♧ Coleções</button>
    <button onclick="adminTab('noticesAdmin',this)">✦ Avisos / Campanhas <span id="adminNoticeCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('mediaAdmin',this)">▶ Vídeos / Apresentação <span id="adminMediaCount" class="adminBadgeCount">0</span></button>
+   <button onclick="adminTab('albumsAdmin',this)">▦ Álbum Mesa Posta <span id="adminAlbumCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('inspirationAdmin',this)">▱ Inspirações <span id="adminInspireCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('homeAdmin',this)">▤ Página Inicial</button>
    <button onclick="adminTab('clientsAdmin',this)">♙ Clientes / Tokens</button>
@@ -794,8 +842,9 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 
    <section id="productsAdmin" class="adminSection">
     <div class="adminTitle"><div><h1>Produtos</h1><p>Cadastre, altere preço, imagem, descrição e status — ou atualize tudo por planilha CSV.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" onclick="csvModel()">Baixar modelo CSV</button><button class="btn" onclick="exportProductsCsv()">Exportar CSV</button><label class="btn">Importar CSV<input type="file" accept=".csv,.txt" style="display:none" onchange="importProductsCsv(event)"></label><button class="btn primary" onclick="newProduct()">+ Novo produto</button></div></div>
-    <div class="panel"><div class="controls"><input id="adminProductSearch" placeholder="Pesquisar produto..." oninput="renderAdminProducts()"><select id="adminProductCollection" onchange="renderAdminProducts()"><option value="">Todas as coleções</option></select></div>
-    <div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Margem líq.</th><th>Estoque</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
+    <div class="panel"><div class="controls"><input id="adminProductSearch" placeholder="Pesquisar produto..." oninput="renderAdminProducts()"><select id="adminProductCollection" onchange="renderAdminProducts()"><option value="">Todas as coleções</option></select><select id="adminProductStatus" onchange="renderAdminProducts()"><option value="">Todos os status</option><option value="active">Ativos</option><option value="inactive">Fora de linha</option><option value="promo">★ Em promoção</option><option value="nocost">Sem custo cadastrado</option><option value="noimage">Sem imagem</option><option value="nostock">Estoque zerado</option></select><span id="adminProdCount" class="small muted" style="align-self:center"></span></div>
+    <div id="bulkBar" class="bulkBar hidden"></div>
+    <div class="tableWrap"><table class="adminTable"><thead><tr><th style="width:30px"><input id="selAllProducts" type="checkbox" title="Selecionar todos os produtos filtrados" onchange="toggleSelAll(this.checked)"></th><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Margem líq.</th><th>Estoque</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
    </section>
 
    <section id="kitsAdmin" class="adminSection">
@@ -825,6 +874,11 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
     <div class="adminTitle"><div><h1>Vídeos / Apresentação</h1><p>Vídeo de apresentação ou GIF exibido logo abaixo do banner principal, na tela inicial do cliente.</p></div><button class="btn primary" onclick="newMedia()">+ Novo vídeo / GIF</button></div>
     <div class="panel"><div class="dateNote">Use links do <b>YouTube</b> (pode ser "não listado"), <b>Vimeo</b>, <b>Google Drive</b> ou o endereço de um arquivo <b>.mp4</b> / <b>.gif</b>. Nada é armazenado no banco — o vídeo é exibido direto da origem.</div></div>
     <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Prévia</th><th>Título</th><th>Tipo</th><th>Layout</th><th>Período</th><th>Ordem</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminMediaBody"></tbody></table></div></div>
+   </section>
+
+   <section id="albumsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Álbum Mesa Posta</h1><p>Álbuns de fotos de mesa posta exibidos em uma área exclusiva do catálogo, com visualizador em tela cheia.</p></div><button class="btn primary" onclick="newAlbum()">+ Novo álbum</button></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Capa</th><th>Álbum</th><th>Fotos</th><th>Coleção</th><th>Ordem</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminAlbumsBody"></tbody></table></div></div>
    </section>
 
    <section id="inspirationAdmin" class="adminSection">
@@ -876,6 +930,9 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 <aside id="cart" class="drawer"><div class="drawerHead"><h2>Meu Pedido</h2><button class="x" onclick="closeCart()">×</button></div><div class="drawerBody"><div id="cartItems"></div><div class="field"><label>Condição de pagamento</label><select id="payment"></select></div><div class="field"><label>Observação</label><textarea id="obs" rows="3"></textarea></div></div><div class="drawerFoot"><div class="total"><span>Subtotal</span><b id="subtotal">R$ 0,00</b></div><div class="total"><span>Total</span><span id="grand" class="grand">R$ 0,00</span></div><div class="drawerActions"><button class="btn" onclick="printPDF()">Gerar PDF</button><button class="btn" onclick="sendWhats()">WhatsApp</button><button class="btn primary" onclick="finalizeOrder()">Finalizar pedido</button></div></div></aside>
 
 <div id="modal" class="modal"><div class="modalCard"><div class="modalHead"><h2 id="modalTitle"></h2><button class="x" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
+<div id="albumViewer" class="albumViewer"><div class="avTop"><div id="avTitle"></div><button onclick="closeAlbum()" title="Fechar (Esc)">×</button></div>
+<div class="avStage"><button class="avNav" onclick="albumGo(albumView.i-1)" title="Anterior (←)">‹</button><img id="avImg" alt=""><button class="avNav" onclick="albumGo(albumView.i+1)" title="Próxima (→)">›</button></div>
+<div id="avCaption" class="avCaption"></div><div id="avThumbs" class="avThumbs"></div></div>
 <div id="imageZoomModal" class="imageZoomModal" onclick="closeImageZoom(event)">
 <button class="imageZoomClose" onclick="closeImageZoom(event)">×</button>
 <img id="imageZoomTarget" src="" alt="Detalhe do produto">

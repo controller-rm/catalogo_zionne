@@ -62,7 +62,7 @@ async function loadCatalog() {
   const r = await api('/api/catalog');
   adminPreview = false;
   me = r.client;
-  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, kits: r.kits || [], media: r.media || [], settings: r.settings };
+  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, kits: r.kits || [], media: r.media || [], albums: r.albums || [], settings: r.settings };
   loadCart();
   showApp(me);
   loadMyOrders();
@@ -116,7 +116,7 @@ function renderHome() {
   $('benefits').innerHTML = (h.benefits || []).filter(b => b.active).map(b => `<div class="benefit"><span class="ico">${esc(b.icon)}</span><div><b>${esc(b.title)}</b><span>${esc(b.text)}</span></div></div>`).join('');
   $('footerInstitutional').innerHTML = esc(data.settings.institutional || '').replace(/\n|\\n/g, '<br>');
   $('footerContact').innerHTML = `<b>Atendimento Comercial</b><br>${formatWhats(data.settings.whats)}<br>${esc(data.settings.email || '')}`;
-  renderNotices(); renderInspirations(); renderMedia();
+  renderNotices(); renderInspirations(); renderMedia(); renderPromoArea(); renderAlbums();
 }
 function todayYMD() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 function isNoticeVisible(n) { const t = todayYMD(); return n.active && (!n.startDate || t >= n.startDate) && (!n.endDate || t <= n.endDate); }
@@ -174,13 +174,26 @@ function renderCollectionPurchaseSummary() {
     return `<div class="collectionSummaryCard ${boughtQty ? 'hasBuy' : ''}" data-name="${esc(c.name)}" onclick="filterCollection(this.dataset.name)" title="Clique para filtrar esta coleção"><div class="collectionSummaryName">${esc(c.name)}</div><div class="collectionSummaryStats"><div class="collectionSummaryStat"><strong>${lineSku}</strong><span>SKUs linha</span></div><div class="collectionSummaryStat"><strong>${boughtSku}</strong><span>SKUs comprados</span></div><div class="collectionSummaryStat"><strong>${boughtQty}</strong><span>Itens comprados</span></div></div></div>`;
   }).join('');
 }
+function renderPromoArea() {
+  const el = $('promoArea'); if (!el) return;
+  const list = data.products.filter(p => p.active && promoActive(p));
+  el.classList.toggle('hidden', !list.length); if (!list.length) return;
+  const labels = [...new Set(list.map(promoLabel))];
+  el.innerHTML = `<div class="sectionHead"><div><h2>★ ${esc(labels.length === 1 ? labels[0] : 'Ofertas e campanhas')}</h2><p>Produtos em destaque com condição especial.</p></div><button class="link" onclick="showPromos()">Ver todos →</button></div><div class="promoRow">${list.map(p => { const ep = effPrice(p); return `<div class="promoCard"><span class="promoBadge">★ ${esc(promoLabel(p))}</span><div class="pImg" onclick="openImageZoom(${p.id})">${p.image ? `<img src="${esc(p.image)}" loading="lazy" alt="${esc(p.name)}">` : ''}</div><div class="pBody"><div class="small muted">${esc(p.collection)}</div><div class="pName">${esc(p.name)}</div><div class="pPrice">${ep < p.price ? `<span class="priceOld">${BRL(p.price)}</span>` : ''}<b>${BRL(ep)}</b>${ep < p.price ? `<span class="pctOff">−${Math.round((1 - ep / p.price) * 100)}%</span>` : ''}</div>${p.promo?.end ? `<div class="small" style="color:#a8452f">até ${new Date(p.promo.end + 'T12:00:00').toLocaleDateString('pt-BR')}</div>` : ''}<button onclick="addCart(${p.id})">Adicionar ${Math.max(1, Number(p.minQty) || 1)} un.</button></div></div>`; }).join('')}</div>`;
+}
+function showPromos() { const c = $('promoChip'); if (c) c.classList.add('on'); $('collectionFilter').value = ''; goto('catalog'); renderProducts(); }
+function togglePromoChip() { $('promoChip').classList.toggle('on'); renderProducts(); }
 function renderProducts() {
   const el = $('products'); if (!el) return;
   const q = ($('search')?.value || '').toLowerCase(), cf = $('collectionFilter')?.value || '';
-  const list = data.products.filter(p => p.active && (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q) || (p.collection || '').toLowerCase().includes(q)) && (!cf || p.collection === cf));
+  const onlyPromo = $('promoChip')?.classList.contains('on');
+  const list = data.products.filter(p => p.active && (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q) || (p.collection || '').toLowerCase().includes(q)) && (!cf || p.collection === cf) && (!onlyPromo || promoActive(p)))
+    .map((p, i) => [p, i]).sort((a, b) => (Number(promoActive(b[0])) - Number(promoActive(a[0]))) || a[1] - b[1]).map(x => x[0]);
+  const chip = $('promoChip'); if (chip) { const n = data.products.filter(p => p.active && promoActive(p)).length; chip.classList.toggle('hidden', !n); chip.textContent = `★ Promoções (${n})`; }
   el.innerHTML = list.map(p => {
     const ci = cart.find(x => x.key === 'p' + p.id), cartQty = ci?.qty || 0, min = Math.max(1, Number(p.minQty) || 1), pack = Math.max(1, Number(p.packQty) || 1);
-    return `<article class="product ${cartQty ? 'inCart' : ''}">${pVisual(p)}<div class="productBody"><div class="sku">Cód. ${esc(p.sku)} • ${esc(p.collection)}</div><h3>${esc(p.name)}</h3><div class="desc">${esc(p.description)}</div><div class="priceRow"><span class="price">${BRL(p.price)}</span>${p.stock && p.stock !== 'Disponível' ? `<span class="stock" style="background:#fff2d8;color:#916820">${esc(p.stock)}</span>` : ''}</div><div class="productRules"><span class="productRule">Mínimo: ${min}</span><span class="productRule">Embalagem: ${pack}</span></div><div class="cartSignal ${cartQty ? '' : 'hiddenSignal'}"><span>✓ No carrinho</span><span>${cartQty} un.</span></div><div class="cardItemTotal"><span>Total deste produto</span><strong>${BRL(cartQty * p.price)}</strong></div><div class="add"><input id="q${p.id}" type="number" min="${min}" step="${pack}" value="${min}"><button onclick="addCart(${p.id})">${cartQty ? 'Adicionar mais' : 'Adicionar ao pedido'}</button></div></div></article>`;
+    const promo = promoActive(p), ep = effPrice(p);
+    return `<article class="product ${cartQty ? 'inCart' : ''} ${promo ? 'promo' : ''}">${promo ? `<span class="promoBadge">★ ${esc(promoLabel(p))}</span>` : ''}${pVisual(p)}<div class="productBody"><div class="sku">Cód. ${esc(p.sku)} • ${esc(p.collection)}</div><h3>${esc(p.name)}</h3><div class="desc">${esc(p.description)}</div><div class="priceRow"><span>${ep < p.price ? `<span class="priceOld">${BRL(p.price)}</span>` : ''}<span class="price">${BRL(ep)}</span>${ep < p.price ? `<span class="pctOff">−${Math.round((1 - ep / p.price) * 100)}%</span>` : ''}</span>${p.stock && p.stock !== 'Disponível' ? `<span class="stock" style="background:#fff2d8;color:#916820">${esc(p.stock)}</span>` : ''}</div><div class="productRules"><span class="productRule">Mínimo: ${min}</span><span class="productRule">Embalagem: ${pack}</span></div><div class="cartSignal ${cartQty ? '' : 'hiddenSignal'}"><span>✓ No carrinho</span><span>${cartQty} un.</span></div><div class="cardItemTotal"><span>Total deste produto</span><strong>${BRL(cartQty * ep)}</strong></div><div class="add"><input id="q${p.id}" type="number" min="${min}" step="${pack}" value="${min}"><button onclick="addCart(${p.id})">${cartQty ? 'Adicionar mais' : 'Adicionar ao pedido'}</button></div></div></article>`;
   }).join('') || '<p class="muted small">Nenhum produto disponível.</p>';
   renderCollectionPurchaseSummary();
 }
@@ -209,7 +222,7 @@ function addCart(id) {
   e ? e.qty += q : cart.push(prodCartLine(p, q));
   saveCart(); toast(`${q} unidade(s) adicionada(s) ao pedido`);
 }
-function prodCartLine(p, qty) { return { key: 'p' + p.id, type: 'product', id: p.id, sku: p.sku, name: p.name, price: p.price, qty }; }
+function prodCartLine(p, qty) { const ep = effPrice(p); return { key: 'p' + p.id, type: 'product', id: p.id, sku: p.sku, name: p.name, price: ep, fullPrice: ep < p.price ? p.price : undefined, qty }; }
 function kitCartLine(k, qty) { return { key: 'k' + k.id, type: 'kit', kitId: k.id, sku: 'KIT-' + k.id, name: 'Kit ' + k.name, price: k.price, fullPrice: k.full, qty, components: k.components, maxKits: k.maxKits }; }
 function compsText(x) { return (x.components || []).map(c => `${c.qty * x.qty}x ${c.name} a ${BRL(c.promoPrice ?? c.price)} (de ${BRL(c.price)})`).join('\n'); }
 function saveCart() { localStorage.setItem(cartKey(), JSON.stringify(cart)); updateCart(); renderProducts(); renderKits(); }
@@ -291,7 +304,7 @@ function renderMyOrders() {
   $('myOrdersBody').innerHTML = myOrders.length ? myOrders.map(o => `<tr><td><b>${esc(o.number)}</b></td><td>${new Date(o.created_at).toLocaleDateString('pt-BR')}</td><td>${o.items.reduce((a, x) => a + x.qty, 0)}</td><td>${BRL(o.total)}</td><td>${esc(o.payment)}</td><td>${statusTag(o.status)}</td><td class="actionsCell"><button class="link" onclick="viewMyOrder(${o.id})">Visualizar</button><button class="link" onclick="printMyOrder(${o.id})">PDF</button></td></tr>`).join('') : `<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">${adminPreview ? 'Pré-visualização: os pedidos do cliente aparecem aqui.' : 'Você ainda não enviou pedidos pelo catálogo.'}</td></tr>`;
 }
 function itemRows(items) {
-  return items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}${x.type === 'kit' && x.fullPrice ? ` <small style="color:#a8452f">(de ${BRL(x.fullPrice)} por ${BRL(x.price)})</small>` : ''}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>` +
+  return items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}${x.fullPrice > x.price ? ` <small style="color:#a8452f">(${x.promoLabel ? esc(x.promoLabel) + ': ' : ''}de ${BRL(x.fullPrice)} por ${BRL(x.price)})</small>` : ''}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>` +
     (x.components || []).map(c => `<tr class="comp"><td>↳ ${esc(c.sku)}</td><td>${esc(c.name)} — ${c.qty} por kit${c.promoPrice != null ? ` (de ${BRL(c.price)})` : ''}</td><td>${c.qty * x.qty}</td><td>${c.promoPrice != null ? BRL(c.promoPrice) : ''}</td><td>${c.promoPrice != null ? BRL(c.promoPrice * c.qty * x.qty) : ''}</td></tr>`).join('')).join('');
 }
 function orderItemsTable(items) {
@@ -352,7 +365,7 @@ function previewCatalog() {
   loadCart(); showApp(me); myOrders = []; renderMyOrders();
   $('previewGroupSel').innerHTML = '<option value="">Cliente sem grupo</option>' + groups().map(g => `<option value="${g.id}" ${String(previewGroup) === String(g.id) ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
 }
-function refreshAdmin() { data.kits = data.kits || []; data.groups = data.groups || []; data.media = data.media || []; renderAdminMedia(); renderGroups(); renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
+function refreshAdmin() { data.kits = data.kits || []; data.groups = data.groups || []; data.media = data.media || []; data.albums = data.albums || []; renderAdminMedia(); renderAdminAlbums(); renderGroups(); renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
 function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); if (id === 'intelAdmin') intelInit(); }
 
 let saving = Promise.resolve();
@@ -425,18 +438,20 @@ function exportOrdersCsv() { window.open('/api/admin/orders.csv?session=' + enco
 function prodMarginCell(p) {
   const f = finOf(p); if (!f.hasCost) return '<span class="muted" title="Sem custo cadastrado">—</span>';
   const m = marginAt(f, p.price), st = finStatus(m, f.lucro, f.lucroMin);
-  return `<span title="Custo ${BRL(f.cost)} • Preço ideal ${BRL(f.ideal)}">${dotF(st)}${pctF(m)}${p.price < f.ideal - 0.005 ? `<br><span class="small" style="color:#a56a00">ideal ${BRL(f.ideal)}</span>` : ''}</span>`;
+  const ep = effPrice(p), mp = ep < p.price ? marginAt(f, ep) : null;
+  return `<span title="Custo ${BRL(f.cost)} • Preço ideal ${BRL(f.ideal)}">${dotF(st)}${pctF(m)}${p.price < f.ideal - 0.005 ? `<br><span class="small" style="color:#a56a00">ideal ${BRL(f.ideal)}</span>` : ''}${mp != null ? `<br><span class="small">promo: ${dotF(finStatus(mp, f.lucro, f.lucroMin))}${pctF(mp)}</span>` : ''}</span>`;
 }
 function renderAdminProducts() {
   const body = $('adminProductsBody'); if (!body) return;
-  const q = ($('adminProductSearch')?.value || '').toLowerCase(), cf = $('adminProductCollection')?.value || '';
-  const list = data.products.filter(p => (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)) && (!cf || p.collection === cf));
-  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy" style="cursor:zoom-in" onclick="zoomUrl(this.src)" onerror="this.outerHTML='<div class=&quot;thumb imgErrThumb&quot; title=&quot;Imagem não carregou&quot;>⚠</div>'">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${prodMarginCell(p)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
+  const list = adminProductFilter(); adminProdList = list;
+  $('adminProdCount').textContent = `${list.length} de ${data.products.length} produto(s)`;
+  body.innerHTML = list.map(p => `<tr class="${selProducts.has(p.id) ? 'sel' : ''} ${p.active ? '' : 'offRow'}"><td><input type="checkbox" ${selProducts.has(p.id) ? 'checked' : ''} onchange="toggleSelProduct(${p.id},this.checked);this.closest('tr').classList.toggle('sel',this.checked)"></td><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy" style="cursor:zoom-in" onclick="zoomUrl(this.src)" onerror="this.outerHTML='<div class=&quot;thumb imgErrThumb&quot; title=&quot;Imagem não carregou&quot;>⚠</div>'">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b>${p.promo?.active ? ` <span class="tag ${promoActive(p) ? 'warn' : 'off'}" title="${promoActive(p) ? 'Em destaque' : 'Fora do período'}">★ ${esc(promoLabel(p))}${p.promo.price ? ' ' + BRL(p.promo.price) : ''}</span>` : ''}</td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${prodMarginCell(p)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
+  renderBulkBar();
 }
 let tempImage = '';
 function productForm(p = {}) {
   const opts = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<option ${p.collection === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" placeholder="https://..." oninput="previewPF()"></div><div class="imagePreview pfCheck" id="pfPreview"></div><p class="small muted">Cole o link da foto. Links de compartilhamento do Google Drive, OneDrive e Dropbox são convertidos automaticamente. Clique na imagem para ampliar.</p></div></div>${productFinForm(p)}<div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
+  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" placeholder="https://..." oninput="previewPF()"></div><div class="imagePreview pfCheck" id="pfPreview"></div><p class="small muted">Cole o link da foto. Links de compartilhamento do Google Drive, OneDrive e Dropbox são convertidos automaticamente. Clique na imagem para ampliar.</p></div></div>${productPromoForm(p)}${productFinForm(p)}<div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
 }
 function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true }), true); imgCheck('pfPreview', ''); pfFinCalc(); $('pfPrice').addEventListener('input', pfFinCalc); }
 function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p), true); imgCheck('pfPreview', p.image); pfFinCalc(); $('pfPrice').addEventListener('input', pfFinCalc); }
@@ -460,10 +475,11 @@ function pfFinCalc() {
   out.innerHTML = `<div><small>Deduções s/ venda</small><b>${String(+f.ded.toFixed(2)).replace('.', ',')}%</b></div><div><small>Preço ideal (lucro ${String(f.lucro).replace('.', ',')}%)</small><b>${BRL(f.ideal)}</b></div><div><small>Preço mínimo (lucro ${String(f.lucroMin).replace('.', ',')}%)</small><b>${BRL(f.minPrice)}</b></div><div><small>Margem líquida no preço atual</small><b class="${st}">${dotF(st)}${pctF(m)}</b></div><div><small>Preço atual × ideal</small><b class="${price >= f.ideal - 0.005 ? 'g' : 'r'}">${price ? (Math.abs(price / f.ideal - 1) < 0.0005 ? 'igual ao ideal' : (price > f.ideal ? '+' : '−') + pctF(Math.abs(price / f.ideal - 1)) + (price > f.ideal ? ' acima' : ' abaixo')) : '—'}</b></div><div><small>Desconto até o lucro alvo (${String(f.lucro).replace('.', ',')}%)</small><b class="${price > f.ideal ? 'g' : 'r'}">${price ? (price > f.ideal ? pctF(1 - f.ideal / price) : 'sem margem p/ desconto') : '—'}</b></div><div><small>Desconto até o lucro mínimo (${String(f.lucroMin).replace('.', ',')}%)</small><b class="y">${price && f.minPrice ? pctF(Math.max(0, 1 - f.minPrice / price)) : '—'}</b></div><button class="btn" type="button" onclick="$('pfPrice').value=${(Math.round(f.ideal * 100) / 100).toFixed(2)};pfFinCalc()">Usar preço ideal</button>`;
 }
 function saveProduct(id) {
-  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: normImg($('pfImage').value), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0), ...pfFinRead() };
+  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: normImg($('pfImage').value), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0), ...pfFinRead(), promo: readPromoForm() };
+  if (!obj.promo) delete obj.promo;
   if (!obj.sku || !obj.name) return toast('Informe código e nome');
   if (data.products.some(x => x.sku === obj.sku && x.id !== id)) return toast('Já existe um produto com este código');
-  if (id) Object.assign(data.products.find(x => x.id === id), obj); else { obj.id = nextId(data.products); data.products.push(obj); }
+  if (id) { const cur = data.products.find(x => x.id === id); if (!obj.promo) delete cur.promo; Object.assign(cur, obj); } else { obj.id = nextId(data.products); data.products.push(obj); }
   closeModal(); saveData('Produto salvo e publicado');
 }
 function toggleProduct(id) { const p = data.products.find(x => x.id === id); p.active = !p.active; saveData(p.active ? 'Produto ativado' : 'Produto marcado fora de linha'); }
@@ -1313,7 +1329,7 @@ function intelFromOrder(id) {
   intel.gd = 0; intel.bp = finDefaults().bonusPct;
   o.items.forEach(it => {
     if (it.type === 'kit') (it.components || []).forEach(c => intel.items.push({ productId: c.productId, sku: c.sku, name: c.name, price: c.price, qty: c.qty * it.qty, disc: c.price ? +((1 - (c.promoPrice ?? c.price) / c.price) * 100).toFixed(4) : 0, kit: `${it.name} ×${it.qty}` }));
-    else intel.items.push({ productId: it.id, sku: it.sku, name: it.name, price: it.price, qty: it.qty, disc: 0 });
+    else intel.items.push({ productId: it.id, sku: it.sku, name: it.name, price: it.fullPrice || it.price, qty: it.qty, disc: it.fullPrice ? +((1 - it.price / it.fullPrice) * 100).toFixed(4) : 0 });
   });
   renderIntel();
 }
@@ -1521,6 +1537,136 @@ function saveMedia(id) {
 }
 function toggleMedia(id) { const x = data.media.find(m => m.id === id); x.active = !x.active; saveData(x.active ? 'Vídeo ativado' : 'Vídeo desativado'); }
 function deleteMedia(id) { if (!confirm('Excluir este vídeo/GIF?')) return; data.media = data.media.filter(x => x.id !== id); saveData('Vídeo excluído'); }
+
+/* ================================================================ PROMOÇÃO / CAMPANHA */
+function promoActive(p) { const pr = p && p.promo; if (!pr || !pr.active) return false; const t = todayYMD(); return (!pr.start || t >= pr.start) && (!pr.end || t <= pr.end); }
+function effPrice(p) { const base = Number(p.price) || 0, pp = Number(p.promo?.price) || 0; return promoActive(p) && pp > 0 && pp < base ? pp : base; }
+function promoLabel(p) { return (p.promo && p.promo.label) || 'Promoção'; }
+
+/* ================================================================ PRODUTOS — seleção múltipla e ações em lote */
+const selProducts = new Set(); let adminProdList = [];
+function adminProductFilter() {
+  const q = ($('adminProductSearch')?.value || '').toLowerCase(), cf = $('adminProductCollection')?.value || '', st = $('adminProductStatus')?.value || '';
+  return data.products.filter(p => (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)) && (!cf || p.collection === cf) &&
+    (!st || (st === 'active' && p.active) || (st === 'inactive' && !p.active) || (st === 'promo' && p.promo?.active) || (st === 'nocost' && !finOf(p).hasCost) || (st === 'noimage' && !p.image) || (st === 'nostock' && stockOf(p) === 0)));
+}
+function toggleSelProduct(id, on) { on ? selProducts.add(id) : selProducts.delete(id); renderBulkBar(); }
+function toggleSelAll(on) { adminProdList.forEach(p => on ? selProducts.add(p.id) : selProducts.delete(p.id)); renderAdminProducts(); }
+function clearSel() { selProducts.clear(); renderAdminProducts(); }
+function renderBulkBar() {
+  const bar = $('bulkBar'); if (!bar) return;
+  const n = [...selProducts].filter(id => data.products.some(p => p.id === id)).length;
+  bar.classList.toggle('hidden', !n);
+  bar.innerHTML = `<b>${n} produto(s) selecionado(s)</b><button class="btn" onclick="bulkActive(false)">Fora de linha</button><button class="btn" onclick="bulkActive(true)">Ativar</button><button class="btn" onclick="bulkMove()">Mover para coleção…</button><button class="btn" onclick="bulkPromo()">★ Promoção / campanha…</button><button class="btn" onclick="bulkUnpromo()">Remover promoção</button><button class="btn" style="color:#a34b44" onclick="bulkDelete()">Excluir</button><button class="link" onclick="clearSel()">Limpar seleção</button>`;
+  const all = $('selAllProducts'); if (all) { const vis = adminProdList.filter(p => selProducts.has(p.id)).length; all.checked = vis > 0 && vis === adminProdList.length; all.indeterminate = vis > 0 && vis < adminProdList.length; }
+}
+function selList() { return data.products.filter(p => selProducts.has(p.id)); }
+function bulkActive(on) { const l = selList(); l.forEach(p => p.active = on); saveData(`${l.length} produto(s) ${on ? 'ativado(s)' : 'marcado(s) como fora de linha'}`); }
+function bulkMove() {
+  showModal('Mover produtos para outra coleção', `<p class="small muted">${selList().length} produto(s) selecionado(s).</p><div class="field"><label>Coleção de destino</label><select id="bulkCol" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px">${data.collections.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => `<option>${esc(c.name)}</option>`).join('')}</select></div><div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="bulkMoveApply()">Mover</button></div>`);
+}
+function bulkMoveApply() { const c = $('bulkCol').value, l = selList(); l.forEach(p => p.collection = c); closeModal(); saveData(`${l.length} produto(s) movido(s) para ${c}`); }
+function bulkPromo() {
+  showModal('Promoção / campanha em lote', `<p class="small muted">${selList().length} produto(s) selecionado(s). Eles ganham o selo e ficam em destaque no catálogo.</p>
+  <div class="grid2"><div class="field"><label>Selo (texto do destaque)</label><input id="bpLabel" value="Promoção" placeholder="Promoção, Black Friday, Lançamento…"></div><div class="field"><label>Desconto sobre o preço (%)</label><input id="bpPct" type="number" min="0" max="90" step="0.5" placeholder="Em branco = só destaque, sem mudar preço"></div>
+  <div class="field"><label>Início</label><input id="bpStart" type="date"></div><div class="field"><label>Fim</label><input id="bpEnd" type="date"></div></div>
+  <p class="small muted">Com desconto informado, o cliente vê o preço "de/por" e o pedido usa o preço promocional. Fora do período, o produto volta ao preço normal automaticamente.</p>
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="bulkPromoApply()">Aplicar</button></div>`);
+}
+function bulkPromoApply() {
+  const pct = Number($('bpPct').value) || 0, l = selList();
+  if ($('bpStart').value && $('bpEnd').value && $('bpEnd').value < $('bpStart').value) return toast('A data final é anterior à inicial');
+  l.forEach(p => p.promo = { active: true, label: $('bpLabel').value.trim() || 'Promoção', price: pct > 0 ? Math.round(p.price * (1 - pct / 100) * 100) / 100 : '', start: $('bpStart').value, end: $('bpEnd').value });
+  closeModal(); saveData(`${l.length} produto(s) em promoção`);
+}
+function bulkUnpromo() { const l = selList(); l.forEach(p => delete p.promo); saveData(`Promoção removida de ${l.length} produto(s)`); }
+function bulkDelete() {
+  const l = selList(), ids = new Set(l.map(p => p.id)), kits = (data.kits || []).filter(k => (k.items || []).some(i => ids.has(Number(i.productId))));
+  if (!confirm(`Excluir definitivamente ${l.length} produto(s)?${kits.length ? `\n\nAtenção: ${kits.length} kit(s) usam esses produtos (${kits.map(k => k.name).join(', ')}) e deixarão de aparecer.` : ''}\n\nDica: para manter o histórico, prefira "Fora de linha".`)) return;
+  data.products = data.products.filter(p => !ids.has(p.id)); selProducts.clear(); saveData(`${l.length} produto(s) excluído(s)`);
+}
+function productPromoForm(p) {
+  const pr = p.promo || {};
+  return `<div class="promoBox"><label class="checkRow" style="font-weight:800"><input id="ppOn" type="checkbox" ${pr.active ? 'checked' : ''} onchange="$('ppFields').classList.toggle('hidden',!this.checked)"> ★ Produto em promoção / campanha (destaque no catálogo)</label>
+  <div id="ppFields" class="${pr.active ? '' : 'hidden'}"><div class="grid2" style="margin-top:8px"><div class="field"><label>Selo</label><input id="ppLabel" value="${esc(pr.label || 'Promoção')}" placeholder="Promoção, Black Friday…"></div><div class="field"><label>Preço promocional (opcional)</label><input id="ppPrice" type="number" step="0.01" min="0" value="${pr.price ?? ''}" placeholder="Em branco = só destaque"></div><div class="field"><label>Início</label><input id="ppStart" type="date" value="${pr.start || ''}"></div><div class="field"><label>Fim</label><input id="ppEnd" type="date" value="${pr.end || ''}"></div></div></div></div>`;
+}
+function readPromoForm() {
+  if (!$('ppOn')?.checked) return undefined;
+  return { active: true, label: $('ppLabel').value.trim() || 'Promoção', price: $('ppPrice').value === '' ? '' : Number($('ppPrice').value), start: $('ppStart').value, end: $('ppEnd').value };
+}
+
+/* ================================================================ ÁLBUM MESA POSTA */
+function clientAlbums() { return (data.albums || []).filter(a => a.active && (a.photos || []).some(f => f.url)).sort((a, b) => (a.order || 0) - (b.order || 0)); }
+function albumCover(a) { const ph = (a.photos || []).filter(f => f.url); return (ph.find(f => f.cover) || ph[0] || {}).url || ''; }
+function renderAlbums() {
+  const area = $('albumArea'); if (!area) return;
+  const list = clientAlbums();
+  area.classList.toggle('hidden', !list.length);
+  ['sideAlbum', 'topAlbum'].forEach(id => { const e = $(id); if (e) e.style.display = list.length ? '' : 'none'; });
+  $('albumCards').innerHTML = list.map(a => { const n = a.photos.filter(f => f.url).length, prev = a.photos.filter(f => f.url).slice(0, 4); return `<article class="albumCard" onclick="openAlbum(${a.id},0)"><div class="albumCover"><img src="${esc(albumCover(a))}" alt="${esc(a.title)}" loading="lazy"><span class="albumCount">▦ ${n} foto${n > 1 ? 's' : ''}</span></div><div class="albumStrip">${prev.map(f => `<img src="${esc(f.url)}" loading="lazy">`).join('')}</div><div class="albumBody"><div class="kitKicker" style="color:#8a6a2c">Mesa posta${a.collection ? ' • ' + esc(a.collection) : ''}</div><h3>${esc(a.title)}</h3>${a.description ? `<p>${esc(a.description)}</p>` : ''}<span class="link">Abrir álbum →</span></div></article>`; }).join('');
+}
+let albumView = null;
+function openAlbum(id, idx) {
+  const a = clientAlbums().find(x => x.id === id); if (!a) return;
+  albumView = { a, photos: a.photos.filter(f => f.url), i: idx || 0 };
+  $('albumViewer').classList.add('on'); document.body.style.overflow = 'hidden'; drawAlbum();
+}
+function drawAlbum() {
+  const { a, photos, i } = albumView, f = photos[i];
+  $('avTitle').innerHTML = `<b>${esc(a.title)}</b><span>${i + 1} / ${photos.length}</span>`;
+  $('avImg').src = f.url; $('avImg').alt = f.caption || a.title;
+  $('avCaption').innerHTML = `${f.caption ? `<div>${esc(f.caption)}</div>` : ''}${a.collection ? `<button class="btn" onclick="closeAlbum();filterCollection('${esc(a.collection).replace(/'/g, "\\'")}')">Ver produtos da coleção ${esc(a.collection)} →</button>` : ''}`;
+  $('avThumbs').innerHTML = photos.map((p, k) => `<img src="${esc(p.url)}" class="${k === i ? 'on' : ''}" onclick="albumGo(${k})" loading="lazy">`).join('');
+  $('avThumbs').children[i]?.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+function albumGo(k) { if (!albumView) return; const n = albumView.photos.length; albumView.i = (k + n) % n; drawAlbum(); }
+function closeAlbum() { $('albumViewer').classList.remove('on'); document.body.style.overflow = ''; albumView = null; }
+document.addEventListener('keydown', e => { if (!albumView) return; if (e.key === 'ArrowRight') albumGo(albumView.i + 1); else if (e.key === 'ArrowLeft') albumGo(albumView.i - 1); else if (e.key === 'Escape') closeAlbum(); });
+(() => { let x0 = null; document.addEventListener('touchstart', e => { if (albumView) x0 = e.touches[0].clientX; }, { passive: true }); document.addEventListener('touchend', e => { if (!albumView || x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 45) albumGo(albumView.i + (dx < 0 ? 1 : -1)); x0 = null; }, { passive: true }); })();
+
+/* ---------------------------------------------------------------- admin: álbuns */
+function renderAdminAlbums() {
+  const body = $('adminAlbumsBody'); if (!body) return;
+  const list = (data.albums || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  $('adminAlbumCount').textContent = list.filter(a => a.active).length;
+  body.innerHTML = list.map(a => `<tr><td>${albumCover(a) ? `<img class="listThumbWide" src="${esc(albumCover(a))}" style="object-fit:cover">` : '<div class="listThumbWide"></div>'}</td><td><b>${esc(a.title)}</b><br><span class="muted">${esc((a.description || '').slice(0, 60))}</span></td><td>${(a.photos || []).filter(f => f.url).length}</td><td>${esc(a.collection || '—')}</td><td>${a.order || 1}</td><td><span class="tag ${a.active ? 'on' : 'off'}">${a.active ? 'Publicado' : 'Oculto'}</span></td><td class="actionsCell"><button onclick="editAlbum(${a.id})">Editar / fotos</button><button onclick="toggleAlbum(${a.id})">${a.active ? 'Ocultar' : 'Publicar'}</button><button class="red" onclick="deleteAlbum(${a.id})">Excluir</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:22px">Nenhum álbum. Clique em "+ Novo álbum".</td></tr>';
+}
+let albumDraft = null;
+function albumForm(a) {
+  return `<div class="grid2"><div>
+   <div class="field"><label>Título do álbum</label><input id="afTitle" value="${esc(a.title || '')}" placeholder="Ex.: Natal 2026 — Mesa Posta" oninput="albumDraft.title=this.value"></div>
+   <div class="field"><label>Descrição</label><textarea id="afDesc" rows="3" oninput="albumDraft.description=this.value">${esc(a.description || '')}</textarea></div>
+   <div class="grid2"><div class="field"><label>Coleção relacionada (opcional)</label><select id="afCol" onchange="albumDraft.collection=this.value"><option value="">— nenhuma —</option>${data.collections.filter(c => c.active).sort((x, y) => x.name.localeCompare(y.name)).map(c => `<option ${a.collection === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div><div class="field"><label>Ordem</label><input id="afOrder" type="number" value="${a.order || 1}" oninput="albumDraft.order=Number(this.value)||1"></div></div>
+   <label class="checkRow"><input type="checkbox" ${a.active !== false ? 'checked' : ''} onchange="albumDraft.active=this.checked"> Publicado para os clientes</label>
+   <div class="field" style="margin-top:12px"><label>Adicionar fotos — cole uma URL por linha</label><textarea id="afUrls" rows="5" placeholder="https://.../mesa-posta-1.jpg&#10;https://drive.google.com/file/d/.../view&#10;https://.../mesa-posta-3.jpg"></textarea></div>
+   <button class="btn primary" onclick="albumAddUrls()">+ Adicionar ao álbum</button>
+   <p class="small muted">Links do Google Drive, OneDrive e Dropbox são convertidos automaticamente. As fotos não são gravadas no banco — só o link.</p>
+  </div><div><div class="small muted" style="margin-bottom:6px">Fotos do álbum <b id="afCount"></b> — ★ define a capa, ↑↓ muda a ordem</div><div id="afPhotos" class="afPhotos"></div></div></div>
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveAlbum()">Salvar álbum</button></div>`;
+}
+function renderAlbumPhotos() {
+  const ph = albumDraft.photos; $('afCount').textContent = `(${ph.length})`;
+  $('afPhotos').innerHTML = ph.map((f, k) => `<div class="afPhoto ${f.cover ? 'cover' : ''}"><img src="${esc(f.url)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'afErr',textContent:'⚠ não carregou'}))"><div class="afCtl"><input value="${esc(f.caption || '')}" placeholder="Legenda (opcional)" oninput="albumDraft.photos[${k}].caption=this.value"><div><button title="Capa" class="${f.cover ? 'on' : ''}" onclick="albumCoverSet(${k})">★</button><button title="Subir" onclick="albumMove(${k},-1)">↑</button><button title="Descer" onclick="albumMove(${k},1)">↓</button><button title="Remover" style="color:#a34b44" onclick="albumDraft.photos.splice(${k},1);renderAlbumPhotos()">×</button></div></div></div>`).join('') || '<div class="mediaEmpty">Nenhuma foto ainda. Cole as URLs ao lado.</div>';
+}
+function albumAddUrls() {
+  const urls = $('afUrls').value.split(/\s+/).map(u => u.trim()).filter(u => /^https?:\/\//i.test(u));
+  if (!urls.length) return toast('Cole ao menos uma URL começando com http');
+  urls.forEach(u => albumDraft.photos.push({ url: normImg(u), caption: '' })); $('afUrls').value = ''; renderAlbumPhotos(); toast(`${urls.length} foto(s) adicionada(s)`);
+}
+function albumCoverSet(k) { albumDraft.photos.forEach((f, i) => f.cover = i === k); renderAlbumPhotos(); }
+function albumMove(k, d) { const ph = albumDraft.photos, j = k + d; if (j < 0 || j >= ph.length) return; [ph[k], ph[j]] = [ph[j], ph[k]]; renderAlbumPhotos(); }
+function newAlbum() { albumDraft = { active: true, order: (data.albums || []).length + 1, photos: [] }; showModal('Novo álbum de mesa posta', albumForm(albumDraft), true); renderAlbumPhotos(); }
+function editAlbum(id) { albumDraft = JSON.parse(JSON.stringify(data.albums.find(a => a.id === id))); albumDraft.photos = albumDraft.photos || []; showModal('Editar álbum — ' + albumDraft.title, albumForm(albumDraft), true); renderAlbumPhotos(); }
+function saveAlbum() {
+  const a = albumDraft; a.title = $('afTitle').value.trim(); a.description = $('afDesc').value.trim(); a.collection = $('afCol').value; a.order = Number($('afOrder').value) || 1;
+  if ($('afUrls').value.trim()) albumAddUrls();
+  if (!a.title) return toast('Informe o título do álbum'); if (!a.photos.length) return toast('Adicione ao menos uma foto');
+  data.albums = data.albums || [];
+  if (a.id) Object.assign(data.albums.find(x => x.id === a.id), a); else { a.id = nextId(data.albums); data.albums.push(a); }
+  albumDraft = null; closeModal(); saveData('Álbum salvo e publicado');
+}
+function toggleAlbum(id) { const a = data.albums.find(x => x.id === id); a.active = !a.active; saveData(a.active ? 'Álbum publicado' : 'Álbum oculto'); }
+function deleteAlbum(id) { if (!confirm('Excluir este álbum?')) return; data.albums = data.albums.filter(a => a.id !== id); saveData('Álbum excluído'); }
 
 /* ---------------------------------------------------------------- util */
 function showModal(title, body, wide) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; document.querySelector('#modal .modalCard').classList.toggle('wide', !!wide); $('modal').classList.add('on'); }

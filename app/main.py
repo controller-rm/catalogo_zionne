@@ -322,6 +322,7 @@ def catalog(c=Depends(require_client)):
         "home": ct["home"],
         "notices": [n for n in ct.get("notices", []) if visible_notice(n)],
         "inspirations": [x for x in ct.get("inspirations", []) if x.get("active")],
+        "albums": sorted([{**a, "photos": [ph for ph in a.get("photos", []) if ph.get("url")]} for a in ct.get("albums", []) if a.get("active") and any(ph.get("url") for ph in a.get("photos", []))], key=lambda a: a.get("order") or 0),
         "media": sorted([x for x in ct.get("media", []) if visible_media(x)], key=lambda x: x.get("order") or 0),
         "settings": {k: s.get(k) for k in ("whats", "email", "institutional", "payments")},
     }
@@ -342,6 +343,20 @@ def kit_for_client(k, c):
     """Kit sem grupos = todos os clientes; com grupos = só clientes desses grupos."""
     gs = [int(g) for g in (k.get("groups") or []) if str(g).isdigit()]
     return not gs or (c is not None and str(c.get("groupId") or "").isdigit() and int(c["groupId"]) in gs)
+
+def promo_active(p):
+    pr = p.get("promo") or {}
+    t = date.today().isoformat()
+    return bool(pr.get("active")) and (not pr.get("start") or t >= pr["start"]) and (not pr.get("end") or t <= pr["end"])
+
+def eff_price(p):
+    """Preço praticado: promocional quando a campanha está vigente e o preço promo é menor que o normal."""
+    base = float(p["price"])
+    try:
+        pp = float((p.get("promo") or {}).get("price") or 0)
+    except (TypeError, ValueError):
+        pp = 0
+    return pp if promo_active(p) and 0 < pp < base else base
 
 def visible_media(x):
     t = date.today().isoformat()
@@ -429,8 +444,12 @@ async def create_order(req: Request, c=Depends(require_client)):
         if not p:
             continue
         q = normalize_qty(p, it.get("qty"))
-        line = round(q * float(p["price"]), 2)
-        items.append(dict(id=p["id"], sku=p["sku"], name=p["name"], collection=p.get("collection"), qty=q, price=float(p["price"]), total=line))
+        unit = eff_price(p)
+        line = round(q * unit, 2)
+        row = dict(id=p["id"], sku=p["sku"], name=p["name"], collection=p.get("collection"), qty=q, price=unit, total=line)
+        if unit < float(p["price"]):
+            row.update(fullPrice=float(p["price"]), promoLabel=(p.get("promo") or {}).get("label") or "Promoção")
+        items.append(row)
         total += line
     if not items:
         raise HTTPException(400, "Pedido sem itens válidos.")
@@ -529,7 +548,7 @@ async def import_backup(req: Request, _=Depends(require_admin)):
     b = await req.json()
     clients = b.pop("clients", None)
     ct = kv_get("content")
-    for k in ("products", "collections", "home", "notices", "inspirations", "kits", "media", "groups"):
+    for k in ("products", "collections", "home", "notices", "inspirations", "kits", "media", "groups", "albums"):
         if k in b:
             ct[k] = b[k]
     if isinstance(b.get("settings"), dict):
