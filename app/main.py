@@ -158,6 +158,7 @@ def default_content():
         inspirations=[dict(id=1, title="Blue Ribbon & Tea Delight", description="Uma composição elegante para inspirar sua vitrine e sua mesa posta.",
                            collection="Blue Ribbon", linkType="collection", linkValue="Blue Ribbon", order=1, featured=True, active=True,
                            image="/static/img/inspiracao-blue-ribbon.jpg")],
+        kits=[],
         settings=dict(whats="554130430595", email="comercial@zionne.com.br",
                       institutional="Zionne • Catálogo virtual B2B para parceiros e lojistas.\nCuritiba/PR",
                       payments=["28/56/84 dias", "28/42 dias", "30/60/90 dias", "À vista"]),
@@ -299,15 +300,66 @@ async def login(req: Request):
 def catalog(c=Depends(require_client)):
     ct = kv_get("content")
     s = ct.get("settings", {})
+    prods = {p["id"]: p for p in ct["products"]}
+    kits = []
+    for k in sorted(ct.get("kits", []), key=lambda x: (not x.get("featured"), x.get("order") or 0)):
+        if not visible_kit(k):
+            continue
+        calc = kit_calc(k, prods)
+        if not calc:
+            continue
+        kk = {x: k.get(x) for x in ("id", "name", "description", "image", "startDate", "endDate", "featured", "discountType", "discount")}
+        kk.update(full=calc["full"], price=calc["price"], saving=calc["saving"],
+                  maxKits=calc["maxKits"], available=calc["maxKits"] if k.get("showAvailable") else None,
+                  soldOut=calc["maxKits"] == 0, components=calc["components"])
+        kits.append(kk)
     return {
         "client": public_client(c),
-        "products": [p for p in ct["products"] if p.get("active")],
+        "kits": kits,
+        "products": [{k: v for k, v in p.items() if k != "stockQty"} for p in ct["products"] if p.get("active")],
         "collections": [x for x in ct["collections"] if x.get("active")],
         "home": ct["home"],
         "notices": [n for n in ct.get("notices", []) if visible_notice(n)],
         "inspirations": [x for x in ct.get("inspirations", []) if x.get("active")],
         "settings": {k: s.get(k) for k in ("whats", "email", "institutional", "payments")},
     }
+
+def stock_of(p):
+    v = p.get("stockQty")
+    if v is None or v == "":
+        return None
+    try:
+        return max(0, int(float(v)))
+    except (TypeError, ValueError):
+        return None
+
+def visible_kit(k):
+    t = date.today().isoformat()
+    return k.get("active") and (not k.get("startDate") or t >= k["startDate"]) and (not k.get("endDate") or t <= k["endDate"])
+
+def kit_calc(k, prods):
+    """Preço cheio, desconto, preço do kit e quantos kits o estoque permite montar."""
+    comps, full, max_k, limiting = [], 0.0, None, None
+    for it in k.get("items", []):
+        p = prods.get(int(it.get("productId") or 0))
+        if not p or not p.get("active"):
+            return None
+        q = max(1, int(it.get("qty") or 1))
+        full += float(p["price"]) * q
+        st = stock_of(p)
+        if st is not None and (max_k is None or st // q < max_k):
+            max_k, limiting = st // q, p["name"]
+        comps.append(dict(productId=p["id"], sku=p["sku"], name=p["name"], image=p.get("image", ""), qty=q, price=float(p["price"])))
+    if not comps:
+        return None
+    full = round(full, 2)
+    d = float(k.get("discount") or 0)
+    disc = full * d / 100 if k.get("discountType", "percent") == "percent" else d
+    disc = round(min(max(disc, 0), full), 2)
+    limit = int(k["maxKits"]) if str(k.get("maxKits") or "").strip().isdigit() and int(k["maxKits"]) > 0 else None
+    if limit is not None and (max_k is None or limit < max_k):
+        max_k, limiting = limit, "limite da campanha"
+    return dict(full=full, saving=disc, price=round(full - disc, 2), maxKits=max_k, limiting=limiting, components=comps)
 
 def normalize_qty(p, q):
     mn, pk = max(1, int(p.get("minQty") or 1)), max(1, int(p.get("packQty") or 1))
@@ -319,9 +371,25 @@ def normalize_qty(p, q):
 @app.post("/api/orders")
 async def create_order(req: Request, c=Depends(require_client)):
     b = await req.json()
-    prods = {p["id"]: p for p in kv_get("content")["products"] if p.get("active")}
+    ct = kv_get("content")
+    all_prods = {p["id"]: p for p in ct["products"]}
+    prods = {k: p for k, p in all_prods.items() if p.get("active")}
+    kits = {k["id"]: k for k in ct.get("kits", [])}
     items, total = [], 0.0
     for it in b.get("items", []):
+        if it.get("kitId"):
+            k = kits.get(int(it["kitId"]))
+            calc = kit_calc(k, all_prods) if k and visible_kit(k) else None
+            if not calc:
+                raise HTTPException(400, "Um kit do seu pedido não está mais disponível. Remova-o do carrinho.")
+            q = max(1, int(it.get("qty") or 1))
+            if calc["maxKits"] is not None and q > calc["maxKits"]:
+                raise HTTPException(400, f'Kit "{k["name"]}": disponível no máximo {calc["maxKits"]} kit(s).')
+            line = round(q * calc["price"], 2)
+            items.append(dict(type="kit", kitId=k["id"], sku=f'KIT-{k["id"]}', name=f'Kit {k["name"]}', collection="Kit promocional",
+                              qty=q, price=calc["price"], fullPrice=calc["full"], total=line, components=calc["components"]))
+            total += line
+            continue
         p = prods.get(int(it.get("id", 0)))
         if not p:
             continue
@@ -426,7 +494,7 @@ async def import_backup(req: Request, _=Depends(require_admin)):
     b = await req.json()
     clients = b.pop("clients", None)
     ct = kv_get("content")
-    for k in ("products", "collections", "home", "notices", "inspirations"):
+    for k in ("products", "collections", "home", "notices", "inspirations", "kits"):
         if k in b:
             ct[k] = b[k]
     if isinstance(b.get("settings"), dict):
@@ -478,14 +546,15 @@ def admin_orders_csv(session: str = ""):
         rs = cx.execute(select(orders).order_by(orders.c.id)).all()
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["Pedido", "Data", "Cliente", "CNPJ/CPF", "Tabela", "Condição", "Status", "Código", "Produto", "Coleção", "Qtd", "Unitário", "Total item", "Total pedido", "Observação"])
+    w.writerow(["Pedido", "Data", "Cliente", "CNPJ/CPF", "Tabela", "Condição", "Status", "Código", "Produto", "Coleção", "Qtd", "Unitário", "Total item", "Total pedido", "Observação", "Composição do kit"])
     br = lambda v: f"{v:.2f}".replace(".", ",")
     for r in rs:
         o = order_row(r)
         dt = aware(r.created_at).astimezone(BR_TZ).strftime("%d/%m/%Y %H:%M") if r.created_at else ""
         for it in o["items"]:
             w.writerow([o["number"], dt, o["client_name"], o["client_doc"], o["price_table"], o["payment"], o["status"],
-                        it["sku"], it["name"], it.get("collection", ""), it["qty"], br(it["price"]), br(it["total"]), br(o["total"]), o["obs"] or ""])
+                        it["sku"], it["name"], it.get("collection", ""), it["qty"], br(it["price"]), br(it["total"]), br(o["total"]), o["obs"] or "",
+                        " + ".join(f'{c["qty"]}x {c["sku"]} {c["name"]}' for c in it.get("components", []))])
     data = "﻿" + buf.getvalue()
     return Response(data.encode("utf-8"), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="pedidos_zionne.csv"'})

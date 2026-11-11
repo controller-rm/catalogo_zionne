@@ -17,6 +17,19 @@ todos os clientes, e os pedidos chegam centralizados no painel.
 | — | Link de acesso por cliente (`/?doc=...&token=...`) + mensagem pronta para WhatsApp |
 | — | Bloqueio/validade conferidos a cada acesso (cliente bloqueado sai na hora) |
 
+## Kits promocionais
+
+Admin → **Kits promocionais** → "+ Novo kit":
+- Escolha os produtos e a quantidade de cada um por kit.
+- Desconto em **%** ou **R$**, ou digite direto o **preço final** do kit (o desconto é calculado).
+- O **simulador** mostra preço cheio, desconto, preço do kit, **quantos kits o estoque permite**,
+  qual produto limita, faturamento máximo e, para uma meta ("quero montar 50 kits"), quanto falta de cada item.
+- Período da campanha, limite de kits, destaque e opção de mostrar ao cliente quantos kits restam.
+
+Os kits possíveis usam o campo **Estoque (quantidade)** do produto (em branco = sem controle).
+O estoque não é baixado automaticamente pelos pedidos: atualize a quantidade no produto.
+No pedido, o kit sai como `KIT-n` com a composição detalhada (PDF, WhatsApp e CSV).
+
 ## Endereços
 
 - Catálogo (clientes): `https://SEU-ENDERECO/`

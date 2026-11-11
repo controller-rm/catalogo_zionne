@@ -4,7 +4,7 @@ const BRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', cur
 const SESS = 'zionne_session', ASESS = 'zionne_admin_session';
 const $ = id => document.getElementById(id);
 
-let data = { products: [], collections: [], home: { benefits: [] }, notices: [], inspirations: [], settings: {} };
+let data = { products: [], collections: [], home: { benefits: [] }, notices: [], inspirations: [], kits: [], settings: {} };
 let clients = [], me = null, adminUser = '', orderStatus = [], adminPreview = false;
 let cart = [], myOrders = [], adminOrders = [];
 
@@ -62,7 +62,7 @@ async function loadCatalog() {
   const r = await api('/api/catalog');
   adminPreview = false;
   me = r.client;
-  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, settings: r.settings };
+  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, kits: r.kits || [], settings: r.settings };
   loadCart();
   showApp(me);
   loadMyOrders();
@@ -72,7 +72,10 @@ function loadCart() {
   let saved = [];
   try { saved = JSON.parse(localStorage.getItem(cartKey()) || '[]'); } catch { }
   // mantém só produtos ainda ativos e atualiza preço/nome
-  cart = saved.map(ci => { const p = data.products.find(x => x.id === ci.id && x.active); return p ? { id: p.id, sku: p.sku, name: p.name, price: p.price, qty: normalizeOrderQty(p, ci.qty) } : null; }).filter(Boolean);
+  cart = saved.map(ci => {
+    if (ci.type === 'kit') { const k = clientKits().find(x => x.id === ci.kitId && !x.soldOut); return k ? kitCartLine(k, ci.qty) : null; }
+    const p = data.products.find(x => x.id === ci.id && x.active); return p ? prodCartLine(p, normalizeOrderQty(p, ci.qty)) : null;
+  }).filter(Boolean);
 }
 function showApp(c) {
   show('appView');
@@ -98,7 +101,7 @@ function logoutCatalog() {
   $('loginToken').value = '';
   showLogin();
 }
-function refreshCatalog() { renderHome(); renderFilters(); renderProducts(); updateCart(); renderMyOrders(); }
+function refreshCatalog() { renderHome(); renderFilters(); renderProducts(); renderKits(); updateCart(); renderMyOrders(); }
 function goto(id, btn) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); if (btn) { document.querySelectorAll('.side').forEach(x => x.classList.remove('active')); btn.classList.add('active'); } }
 function syncSearch(v) { $('search').value = v; goto('catalog'); renderProducts(); }
 
@@ -165,7 +168,7 @@ function renderCollectionPurchaseSummary() {
   const cols = data.collections.filter(c => c.active).slice().sort((a, b) => a.order - b.order);
   box.innerHTML = cols.map(c => {
     const lineSku = data.products.filter(p => p.active && p.collection === c.name).length;
-    const rows = cart.filter(ci => { const p = data.products.find(x => x.id === ci.id); return p && p.active && p.collection === c.name; });
+    const rows = cart.filter(ci => { if (ci.type === 'kit') return false; const p = data.products.find(x => x.id === ci.id); return p && p.active && p.collection === c.name; });
     const boughtSku = new Set(rows.map(x => x.id)).size, boughtQty = rows.reduce((a, x) => a + Number(x.qty || 0), 0);
     return `<div class="collectionSummaryCard ${boughtQty ? 'hasBuy' : ''}" data-name="${esc(c.name)}" onclick="filterCollection(this.dataset.name)" title="Clique para filtrar esta coleção"><div class="collectionSummaryName">${esc(c.name)}</div><div class="collectionSummaryStats"><div class="collectionSummaryStat"><strong>${lineSku}</strong><span>SKUs linha</span></div><div class="collectionSummaryStat"><strong>${boughtSku}</strong><span>SKUs comprados</span></div><div class="collectionSummaryStat"><strong>${boughtQty}</strong><span>Itens comprados</span></div></div></div>`;
   }).join('');
@@ -175,7 +178,7 @@ function renderProducts() {
   const q = ($('search')?.value || '').toLowerCase(), cf = $('collectionFilter')?.value || '';
   const list = data.products.filter(p => p.active && (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q) || (p.collection || '').toLowerCase().includes(q)) && (!cf || p.collection === cf));
   el.innerHTML = list.map(p => {
-    const ci = cart.find(x => x.id === p.id), cartQty = ci?.qty || 0, min = Math.max(1, Number(p.minQty) || 1), pack = Math.max(1, Number(p.packQty) || 1);
+    const ci = cart.find(x => x.key === 'p' + p.id), cartQty = ci?.qty || 0, min = Math.max(1, Number(p.minQty) || 1), pack = Math.max(1, Number(p.packQty) || 1);
     return `<article class="product ${cartQty ? 'inCart' : ''}">${pVisual(p)}<div class="productBody"><div class="sku">Cód. ${esc(p.sku)} • ${esc(p.collection)}</div><h3>${esc(p.name)}</h3><div class="desc">${esc(p.description)}</div><div class="priceRow"><span class="price">${BRL(p.price)}</span>${p.stock && p.stock !== 'Disponível' ? `<span class="stock" style="background:#fff2d8;color:#916820">${esc(p.stock)}</span>` : ''}</div><div class="productRules"><span class="productRule">Mínimo: ${min}</span><span class="productRule">Embalagem: ${pack}</span></div><div class="cartSignal ${cartQty ? '' : 'hiddenSignal'}"><span>✓ No carrinho</span><span>${cartQty} un.</span></div><div class="cardItemTotal"><span>Total deste produto</span><strong>${BRL(cartQty * p.price)}</strong></div><div class="add"><input id="q${p.id}" type="number" min="${min}" step="${pack}" value="${min}"><button onclick="addCart(${p.id})">${cartQty ? 'Adicionar mais' : 'Adicionar ao pedido'}</button></div></div></article>`;
   }).join('') || '<p class="muted small">Nenhum produto disponível.</p>';
   renderCollectionPurchaseSummary();
@@ -200,24 +203,33 @@ function closeImageZoom(e) {
 /* ---------------------------------------------------------------- carrinho */
 function addCart(id) {
   const p = data.products.find(x => x.id === id); if (!p) return;
-  const input = $('q' + id), q = normalizeOrderQty(p, parseInt(input?.value || p.minQty || 1)), e = cart.find(x => x.id === id);
+  const input = $('q' + id), q = normalizeOrderQty(p, parseInt(input?.value || p.minQty || 1)), e = cart.find(x => x.key === 'p' + id);
   if (input) input.value = q;
-  e ? e.qty += q : cart.push({ id: p.id, sku: p.sku, name: p.name, price: p.price, qty: q });
+  e ? e.qty += q : cart.push(prodCartLine(p, q));
   saveCart(); toast(`${q} unidade(s) adicionada(s) ao pedido`);
 }
-function saveCart() { localStorage.setItem(cartKey(), JSON.stringify(cart)); updateCart(); renderProducts(); }
+function prodCartLine(p, qty) { return { key: 'p' + p.id, type: 'product', id: p.id, sku: p.sku, name: p.name, price: p.price, qty }; }
+function kitCartLine(k, qty) { return { key: 'k' + k.id, type: 'kit', kitId: k.id, sku: 'KIT-' + k.id, name: 'Kit ' + k.name, price: k.price, fullPrice: k.full, qty, components: k.components, maxKits: k.maxKits }; }
+function compsText(x) { return (x.components || []).map(c => `${c.qty}x ${c.name}`).join(' • '); }
+function saveCart() { localStorage.setItem(cartKey(), JSON.stringify(cart)); updateCart(); renderProducts(); renderKits(); }
 function updateCart() {
   renderCollectionPurchaseSummary();
   const q = cart.reduce((a, x) => a + x.qty, 0), t = cart.reduce((a, x) => a + x.qty * x.price, 0);
   ['cartCount', 'sideCart'].forEach(id => { const e = $(id); if (e) e.textContent = q; });
   $('subtotal').textContent = BRL(t); $('grand').textContent = BRL(t);
-  $('cartItems').innerHTML = cart.length ? cart.map(x => `<div class="cartItem"><div><b>${esc(x.name)}</b><small>${esc(x.sku)} • ${BRL(x.price)} un.</small><small class="cartItemTotal">Total: ${BRL(x.price * x.qty)}</small></div><div class="qctrl"><button onclick="changeQ(${x.id},-1)">−</button><span>${x.qty}</span><button onclick="changeQ(${x.id},1)">+</button></div></div>`).join('') : '<div class="muted small" style="text-align:center;padding:45px 5px">Seu pedido ainda está vazio.</div>';
+  $('cartItems').innerHTML = cart.length ? cart.map(x => `<div class="cartItem"><div><b>${esc(x.name)}</b>${x.type === 'kit' ? '<span class="kitTag">KIT</span>' : ''}<small>${esc(x.sku)} • ${BRL(x.price)} ${x.type === 'kit' ? 'por kit' : 'un.'}</small>${x.type === 'kit' ? `<small class="comps">${esc(compsText(x))}</small>` : ''}<small class="cartItemTotal">Total: ${BRL(x.price * x.qty)}</small></div><div class="qctrl"><button onclick="changeQ('${x.key}',-1)">−</button><span>${x.qty}</span><button onclick="changeQ('${x.key}',1)">+</button></div></div>`).join('') : '<div class="muted small" style="text-align:center;padding:45px 5px">Seu pedido ainda está vazio.</div>';
 }
-function changeQ(id, d) {
-  const x = cart.find(i => i.id === id); if (!x) return;
-  const p = data.products.find(i => i.id === id), pack = Math.max(1, Number(p?.packQty) || 1), min = Math.max(1, Number(p?.minQty) || 1);
+function changeQ(key, d) {
+  const x = cart.find(i => i.key === key); if (!x) return;
+  if (x.type === 'kit') {
+    x.qty += d;
+    if (x.maxKits != null && x.qty > x.maxKits) { x.qty = x.maxKits; toast(`Disponível no máximo ${x.maxKits} kit(s)`); }
+    if (x.qty < 1) cart = cart.filter(i => i.key !== key);
+    return saveCart();
+  }
+  const p = data.products.find(i => i.id === x.id), pack = Math.max(1, Number(p?.packQty) || 1), min = Math.max(1, Number(p?.minQty) || 1);
   x.qty += d * pack;
-  if (x.qty < min) cart = cart.filter(i => i.id !== id);
+  if (x.qty < min) cart = cart.filter(i => i.key !== key);
   saveCart();
 }
 function openCart() { $('cart').classList.add('open'); $('overlay').classList.add('on'); }
@@ -229,13 +241,13 @@ function orderView(o) {
   return { number: o.number, date: new Date(o.created_at).toLocaleDateString('pt-BR'), client: o.client_name, doc: o.client_doc, payment: o.payment, obs: o.obs, items: o.items, total: o.total, status: o.status };
 }
 function printOrderDoc(o) {
-  $('printOrder').innerHTML = `<div class="print"><div class="printHead"><img src="${LOGO}"><div style="text-align:right"><b>PEDIDO ${esc(o.number)}</b><br><small>${esc(o.date)}</small>${o.status ? `<br><small>Status: ${esc(o.status)}</small>` : ''}</div></div><p style="font-size:10px"><b>Cliente:</b> ${esc(o.client)}${o.doc ? ' — ' + esc(o.doc) : ''}<br><b>Condição:</b> ${esc(o.payment)}<br><b>Observação:</b> ${esc(o.obs || '—')}</p><table><thead><tr><th>Código</th><th>Produto</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${o.items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>`).join('')}</tbody></table><div class="ptotal"><div><span>Total</span><b>${BRL(o.total)}</b></div></div></div>`;
+  $('printOrder').innerHTML = `<div class="print"><div class="printHead"><img src="${LOGO}"><div style="text-align:right"><b>PEDIDO ${esc(o.number)}</b><br><small>${esc(o.date)}</small>${o.status ? `<br><small>Status: ${esc(o.status)}</small>` : ''}</div></div><p style="font-size:10px"><b>Cliente:</b> ${esc(o.client)}${o.doc ? ' — ' + esc(o.doc) : ''}<br><b>Condição:</b> ${esc(o.payment)}<br><b>Observação:</b> ${esc(o.obs || '—')}</p><table><thead><tr><th>Código</th><th>Produto</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${itemRows(o.items)}</tbody></table><div class="ptotal"><div><span>Total</span><b>${BRL(o.total)}</b></div></div></div>`;
   closeCart(); closeModal(); setTimeout(() => window.print(), 150);
 }
 function printPDF() { if (!cart.length) return toast('Adicione produtos ao pedido'); printOrderDoc(draftOrder()); }
 function whatsText(o) {
   const m = ['Olá, Zionne!', 'Segue meu pedido pelo Catálogo Virtual.', '', `Cliente: ${o.client}`, `Pedido: ${o.number}`, `Condição: ${o.payment}`, ''];
-  o.items.forEach(x => m.push(`${x.qty}x ${x.sku} - ${x.name} - ${BRL(x.qty * x.price)}`));
+  o.items.forEach(x => { m.push(`${x.qty}x ${x.sku} - ${x.name} - ${BRL(x.qty * x.price)}`); (x.components || []).forEach(c => m.push(`   ↳ ${c.qty * x.qty}x ${c.sku} ${c.name}`)); });
   m.push('', `Total: ${BRL(o.total)}`);
   if (o.obs) m.push('', `Obs.: ${o.obs}`);
   return m.join('\n');
@@ -251,7 +263,7 @@ function finalizeOrder() {
 async function confirmOrder() {
   const btn = $('btnConfirmOrder'); if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
   try {
-    const o = await api('/api/orders', { method: 'POST', body: { payment: $('payment').value, obs: $('obs').value, items: cart.map(x => ({ id: x.id, qty: x.qty })) } });
+    const o = await api('/api/orders', { method: 'POST', body: { payment: $('payment').value, obs: $('obs').value, items: cart.map(x => x.type === 'kit' ? { kitId: x.kitId, qty: x.qty } : { id: x.id, qty: x.qty }) } });
     cart = []; saveCart(); $('obs').value = ''; closeCart();
     myOrders.unshift(o); renderMyOrders();
     showModal('Pedido enviado ✓', `<div class="notice">Pedido <b>${esc(o.number)}</b> recebido pela Zionne no valor de <b>${BRL(o.total)}</b>. Você pode acompanhar o andamento em "Meus pedidos".</div><div class="btnRow"><button class="btn" onclick="printMyOrder(${o.id})">Gerar PDF</button><button class="btn" onclick="whatsMyOrder(${o.id})">Enviar pelo WhatsApp</button><button class="btn primary" onclick="closeModal()">Fechar</button></div>`);
@@ -277,8 +289,12 @@ function renderMyOrders() {
   ['sideOrders', 'topOrders'].forEach(id => { const e = $(id); if (e) e.textContent = open; });
   $('myOrdersBody').innerHTML = myOrders.length ? myOrders.map(o => `<tr><td><b>${esc(o.number)}</b></td><td>${new Date(o.created_at).toLocaleDateString('pt-BR')}</td><td>${o.items.reduce((a, x) => a + x.qty, 0)}</td><td>${BRL(o.total)}</td><td>${esc(o.payment)}</td><td>${statusTag(o.status)}</td><td class="actionsCell"><button class="link" onclick="viewMyOrder(${o.id})">Visualizar</button><button class="link" onclick="printMyOrder(${o.id})">PDF</button></td></tr>`).join('') : `<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">${adminPreview ? 'Pré-visualização: os pedidos do cliente aparecem aqui.' : 'Você ainda não enviou pedidos pelo catálogo.'}</td></tr>`;
 }
+function itemRows(items) {
+  return items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}${x.type === 'kit' && x.fullPrice ? ` <small style="color:#a8452f">(de ${BRL(x.fullPrice)} por ${BRL(x.price)})</small>` : ''}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>` +
+    (x.components || []).map(c => `<tr class="comp"><td>↳ ${esc(c.sku)}</td><td>${esc(c.name)} — ${c.qty} por kit</td><td>${c.qty * x.qty}</td><td></td><td></td></tr>`).join('')).join('');
+}
 function orderItemsTable(items) {
-  return `<table class="orderItems"><thead><tr><th>Código</th><th>Produto</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>`).join('')}</tbody></table>`;
+  return `<table class="orderItems"><thead><tr><th>Código</th><th>Produto</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${itemRows(items)}</tbody></table>`;
 }
 function viewMyOrder(id) {
   const o = myOrders.find(x => x.id === id); if (!o) return;
@@ -289,7 +305,10 @@ function whatsMyOrder(id) { const o = myOrders.find(x => x.id === id); if (o) op
 function repeatOrder(id) {
   const o = myOrders.find(x => x.id === id); if (!o) return;
   let added = 0;
-  o.items.forEach(it => { const p = data.products.find(x => x.id === it.id && x.active); if (!p) return; const e = cart.find(x => x.id === p.id); e ? e.qty += it.qty : cart.push({ id: p.id, sku: p.sku, name: p.name, price: p.price, qty: normalizeOrderQty(p, it.qty) }); added++; });
+  o.items.forEach(it => {
+    if (it.type === 'kit') { const k = clientKits().find(x => x.id === it.kitId && !x.soldOut); if (!k) return; const e = cart.find(x => x.key === 'k' + k.id); e ? e.qty += it.qty : cart.push(kitCartLine(k, it.qty)); added++; return; }
+    const p = data.products.find(x => x.id === it.id && x.active); if (!p) return; const e = cart.find(x => x.key === 'p' + p.id); e ? e.qty += it.qty : cart.push(prodCartLine(p, normalizeOrderQty(p, it.qty))); added++;
+  });
   saveCart(); closeModal(); openCart();
   toast(added ? `${added} produto(s) adicionados com o preço atual` : 'Nenhum produto deste pedido está disponível');
 }
@@ -329,7 +348,7 @@ function previewCatalog() {
   me = { name: 'Pré-visualização (Admin)', validity: new Date(new Date().getFullYear(), 11, 31).toISOString().slice(0, 10), priceTable: '—' };
   loadCart(); showApp(me); myOrders = []; renderMyOrders();
 }
-function refreshAdmin() { renderFilters(); renderAdminProducts(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
+function refreshAdmin() { data.kits = data.kits || []; renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
 function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); }
 
 let saving = Promise.resolve();
@@ -357,6 +376,7 @@ function renderDashboard() {
   $('mClients').textContent = clients.filter(c => c.active).length;
   $('adminNoticeCount').textContent = data.notices.filter(n => n.active).length;
   $('adminInspireCount').textContent = data.inspirations.filter(n => n.active).length;
+  $('adminKitCount').textContent = (data.kits || []).filter(k => k.active).length;
   $('adminOrdersCount').textContent = adminOrders.filter(o => o.status === 'Recebido').length;
   $('siteUrl').textContent = location.origin + '/';
 }
@@ -402,18 +422,18 @@ function renderAdminProducts() {
   const body = $('adminProductsBody'); if (!body) return;
   const q = ($('adminProductSearch')?.value || '').toLowerCase(), cf = $('adminProductCollection')?.value || '';
   const list = data.products.filter(p => (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)) && (!cf || p.collection === cf));
-  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
+  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
 }
 let tempImage = '';
 function productForm(p = {}) {
   const opts = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<option ${p.collection === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Estoque</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" oninput="previewPF()"></div><div class="field"><label>Ou enviar foto</label><input id="pfFile" type="file" accept="image/*" onchange="handleUpload(event,'pfPreview',u=>{tempImage=u;$('pfImage').value=u})"></div><div class="imagePreview" id="pfPreview">${p.image ? `<img src="${esc(p.image)}">` : 'Sem imagem'}</div><p class="small muted">A foto é otimizada automaticamente no servidor.</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
+  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" oninput="previewPF()"></div><div class="field"><label>Ou enviar foto</label><input id="pfFile" type="file" accept="image/*" onchange="handleUpload(event,'pfPreview',u=>{tempImage=u;$('pfImage').value=u})"></div><div class="imagePreview" id="pfPreview">${p.image ? `<img src="${esc(p.image)}">` : 'Sem imagem'}</div><p class="small muted">A foto é otimizada automaticamente no servidor.</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
 }
 function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true })); }
 function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p)); }
 function previewPF() { tempImage = $('pfImage').value.trim(); $('pfPreview').innerHTML = tempImage ? `<img src="${esc(tempImage)}">` : 'Sem imagem'; }
 function saveProduct(id) {
-  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: $('pfImage').value.trim() };
+  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: $('pfImage').value.trim(), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0) };
   if (!obj.sku || !obj.name) return toast('Informe código e nome');
   if (data.products.some(x => x.sku === obj.sku && x.id !== id)) return toast('Já existe um produto com este código');
   if (id) Object.assign(data.products.find(x => x.id === id), obj); else { obj.id = nextId(data.products); data.products.push(obj); }
@@ -602,8 +622,163 @@ function importConfig(e) {
   r.readAsText(f); e.target.value = '';
 }
 
+/* ================================================================ KITS PROMOCIONAIS */
+/* cálculo igual ao do servidor: preço cheio, desconto, preço do kit e kits possíveis pelo estoque */
+function stockOf(p) { if (p.stockQty === '' || p.stockQty == null) return null; const n = parseInt(p.stockQty); return isNaN(n) ? null : Math.max(0, n); }
+function kitCalc(k, prods) {
+  const map = new Map((prods || data.products).map(p => [p.id, p]));
+  let full = 0, maxK = null, limiting = null; const rows = [], missing = [];
+  (k.items || []).forEach(it => {
+    const p = map.get(Number(it.productId)), q = Math.max(1, parseInt(it.qty) || 1);
+    if (!p) { missing.push(it.productId); return; }
+    const st = stockOf(p), perItem = st == null ? null : Math.floor(st / q);
+    full += Number(p.price) * q;
+    if (perItem != null && (maxK == null || perItem < maxK)) { maxK = perItem; limiting = p.name; }
+    rows.push({ p, qty: q, stock: st, perItem, subtotal: Number(p.price) * q, inactive: !p.active });
+  });
+  full = Math.round(full * 100) / 100;
+  const d = Number(k.discount) || 0;
+  let disc = (k.discountType || 'percent') === 'percent' ? full * d / 100 : d;
+  disc = Math.round(Math.min(Math.max(disc, 0), full) * 100) / 100;
+  const limit = parseInt(k.maxKits) > 0 ? parseInt(k.maxKits) : null;
+  if (limit != null && (maxK == null || limit < maxK)) { maxK = limit; limiting = 'limite da campanha'; }
+  return { full, saving: disc, price: Math.round((full - disc) * 100) / 100, pct: full ? disc / full * 100 : 0, maxKits: maxK, limiting, rows, missing };
+}
+function isKitVisible(k) { const t = todayYMD(); return k.active && (!k.startDate || t >= k.startDate) && (!k.endDate || t <= k.endDate); }
+function kitBadge(k) { return k.saving > 0 ? (k.discountType === 'value' ? `− ${BRL(k.saving)}` : `− ${Math.round(Number(k.discount) || 0)}%`) : ''; }
+
+/* lista de kits para o catálogo (cliente vem pronto do servidor; pré-visualização do admin calcula aqui) */
+function clientKits() {
+  if (!adminPreview) return data.kits || [];
+  return (data.kits || []).filter(isKitVisible).map(k => {
+    const c = kitCalc(k);
+    if (!c.rows.length || c.missing.length || c.rows.some(r => r.inactive)) return null;
+    return { ...k, full: c.full, price: c.price, saving: c.saving, maxKits: c.maxKits, available: k.showAvailable ? c.maxKits : null, soldOut: c.maxKits === 0, components: c.rows.map(r => ({ productId: r.p.id, sku: r.p.sku, name: r.p.name, image: r.p.image, qty: r.qty, price: r.p.price })) };
+  }).filter(Boolean).sort((a, b) => (Number(b.featured) - Number(a.featured)) || ((a.order || 0) - (b.order || 0)));
+}
+function kitPicture(k) {
+  if (k.image) return `<img src="${esc(k.image)}" alt="${esc(k.name)}" loading="lazy">`;
+  const imgs = k.components.filter(c => c.image);
+  if (!imgs.length) return `<div class="kitMosaic" style="grid-template-columns:1fr"><div class="more" style="font-family:Georgia,serif;font-weight:500;font-size:22px;padding:18px;text-align:center;background:linear-gradient(135deg,#eef1e7,#f6efe2)">✦ ${esc(k.name)}</div></div>`;
+  const show = imgs.slice(0, imgs.length > 4 ? 3 : 4);
+  return `<div class="kitMosaic">${show.map(c => `<div><img src="${esc(c.image)}" alt="${esc(c.name)}" loading="lazy"></div>`).join('')}${imgs.length > 4 ? `<div class="more">+${k.components.length - 3} itens</div>` : ''}</div>`;
+}
+function renderKits() {
+  const area = $('kitsArea'); if (!area) return;
+  const kits = clientKits();
+  area.classList.toggle('hidden', !kits.length);
+  $('kitCards').innerHTML = kits.map(k => {
+    const inCart = cart.find(x => x.key === 'k' + k.id);
+    const items = k.components.slice(0, 4).map(c => `<li><b>${c.qty}x</b> ${esc(c.name)}</li>`).join('') + (k.components.length > 4 ? `<li class="muted">+ ${k.components.length - 4} outro(s) item(ns)</li>` : '');
+    return `<article class="kitCard ${inCart ? 'inCart' : ''} ${k.soldOut ? 'soldOut' : ''}">${kitBadge(k) ? `<span class="kitBadge">${kitBadge(k)}</span>` : (k.featured ? '<span class="kitBadge gold">Destaque</span>' : '')}<div class="kitPic" onclick="viewKit(${k.id})" title="Ver composição">${kitPicture(k)}</div><div class="kitBody"><div class="kitKicker">Kit promocional${k.endDate ? ' • até ' + new Date(k.endDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''}</div><h3>${esc(k.name)}</h3>${k.description ? `<div class="desc">${esc(k.description)}</div>` : ''}<ul class="kitItems">${items}</ul><div class="kitPrices">${k.saving > 0 ? `<span class="kitFull">${BRL(k.full)}</span>` : ''}<span class="kitPrice">${BRL(k.price)}</span>${k.saving > 0 ? `<span class="kitSave">economize ${BRL(k.saving)}</span>` : ''}</div><div class="kitMeta"><span>por kit</span><span>${k.soldOut ? '<b style="color:#a8452f">Esgotado</b>' : k.available != null ? `${k.available} kit(s) disponíveis` : ''}</span></div>${inCart ? `<div class="cartSignal"><span>✓ No carrinho</span><span>${inCart.qty} kit(s) • ${BRL(inCart.qty * inCart.price)}</span></div>` : ''}<div class="add"><input id="kq${k.id}" type="number" min="1" value="1" ${k.soldOut ? 'disabled' : ''}><button onclick="addKit(${k.id})" ${k.soldOut ? 'disabled style="background:#999"' : ''}>${k.soldOut ? 'Esgotado' : inCart ? 'Adicionar mais' : 'Adicionar kit'}</button></div><button class="link" style="margin-top:8px;text-align:left" onclick="viewKit(${k.id})">Ver composição completa →</button></div></article>`;
+  }).join('');
+}
+function addKit(id) {
+  const k = clientKits().find(x => x.id === id); if (!k || k.soldOut) return;
+  const q = Math.max(1, parseInt($('kq' + id)?.value) || 1), e = cart.find(x => x.key === 'k' + id), total = (e?.qty || 0) + q;
+  if (k.maxKits != null && total > k.maxKits) return toast(`Disponível no máximo ${k.maxKits} kit(s) deste kit.`);
+  e ? e.qty = total : cart.push(kitCartLine(k, q));
+  saveCart(); toast(`${q} kit(s) "${k.name}" adicionado(s) ao pedido`);
+}
+function viewKit(id) {
+  const k = clientKits().find(x => x.id === id); if (!k) return;
+  showModal('Kit ' + k.name, `${k.description ? `<p class="small muted">${esc(k.description)}</p>` : ''}<table class="orderItems"><thead><tr><th></th><th>Produto</th><th>Qtd. no kit</th><th>Unitário</th><th>Subtotal</th></tr></thead><tbody>${k.components.map(c => `<tr><td>${c.image ? `<img class="thumb" src="${esc(c.image)}">` : ''}</td><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.sku)}</span></td><td>${c.qty}</td><td>${BRL(c.price)}</td><td>${BRL(c.price * c.qty)}</td></tr>`).join('')}</tbody></table><div class="total" style="margin-top:10px"><span>Valor dos itens separados</span><b>${BRL(k.full)}</b></div>${k.saving > 0 ? `<div class="total"><span>Desconto do kit</span><b style="color:#a8452f">− ${BRL(k.saving)}</b></div>` : ''}<div class="total"><span>Preço do kit</span><b class="grand">${BRL(k.price)}</b></div>${k.soldOut ? '' : `<div class="btnRow"><button class="btn primary" onclick="closeModal();addKit(${k.id})">Adicionar 1 kit ao pedido</button></div>`}`);
+}
+
+/* ---------------------------------------------------------------- kits (admin) */
+function renderAdminKits() {
+  const body = $('adminKitsBody'); if (!body) return;
+  const kits = (data.kits || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  body.innerHTML = kits.map(k => {
+    const c = kitCalc(k), vis = isKitVisible(k), broken = c.missing.length || c.rows.some(r => r.inactive);
+    const st = !k.active ? ['off', 'Inativo'] : broken ? ['red', 'Produto inativo'] : !vis ? ['warn', 'Fora do período'] : c.maxKits === 0 ? ['red', 'Sem estoque'] : ['on', 'Exibindo'];
+    return `<tr><td>${k.image ? `<img class="listThumbWide" src="${esc(k.image)}">` : `<div class="listThumbWide" style="display:flex;align-items:center;justify-content:center;color:#a8452f">✦</div>`}</td><td><b>${esc(k.name)}</b><br><span class="muted">${esc((k.description || '').slice(0, 50))}</span></td><td>${c.rows.reduce((a, r) => a + r.qty, 0)} un. / ${c.rows.length} prod.</td><td>${BRL(c.full)}</td><td>${c.saving > 0 ? (k.discountType === 'value' ? BRL(c.saving) : Math.round(k.discount) + '% (' + BRL(c.saving) + ')') : '—'}</td><td><b>${BRL(c.price)}</b></td><td>${c.maxKits == null ? '<span class="muted">sem limite</span>' : `<b>${c.maxKits}</b><br><span class="muted">${esc(c.limiting || '')}</span>`}</td><td>${formatPeriod(k.startDate, k.endDate)}</td><td><span class="tag ${st[0]}">${st[1]}</span></td><td class="actionsCell"><button onclick="editKit(${k.id})">Editar / Simular</button><button onclick="duplicateKit(${k.id})">Duplicar</button><button onclick="toggleKit(${k.id})">${k.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteKit(${k.id})">Excluir</button></td></tr>`;
+  }).join('') || '<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Nenhum kit cadastrado. Clique em "+ Novo kit" para montar o primeiro.</td></tr>';
+}
+
+let kitDraft = null;
+function kitEditorHtml(k) {
+  const prodOpts = data.products.filter(p => p.active).sort((a, b) => (a.collection || '').localeCompare(b.collection || '') || a.name.localeCompare(b.name))
+    .map(p => `<option value="${p.id}">${esc(p.sku)} — ${esc(p.name)} (${esc(p.collection)}) • ${BRL(p.price)}</option>`).join('');
+  return `<div class="kitEditor"><div>
+    <div class="field"><label>Nome do kit</label><input id="kfName" value="${esc(k.name || '')}" placeholder="Ex.: Kit Café da Manhã Blue Ribbon" oninput="kitDraft.name=this.value"></div>
+    <div class="field"><label>Descrição (aparece para o cliente)</label><textarea id="kfDesc" rows="2" oninput="kitDraft.description=this.value">${esc(k.description || '')}</textarea></div>
+    <div class="grid2"><div class="field"><label>Tipo de desconto</label><select id="kfDiscType" onchange="kitDraft.discountType=this.value;updateKitSim()"><option value="percent" ${k.discountType !== 'value' ? 'selected' : ''}>Percentual (%)</option><option value="value" ${k.discountType === 'value' ? 'selected' : ''}>Valor fixo (R$)</option></select></div><div class="field"><label>Desconto no kit</label><input id="kfDisc" type="number" min="0" step="0.01" value="${k.discount ?? 0}" oninput="kitDraft.discount=this.value;updateKitSim()"></div></div>
+    <div class="field"><label>Ou defina o preço final do kit (R$)</label><input id="kfTarget" type="number" min="0" step="0.01" placeholder="Calcula o desconto automaticamente" onchange="setKitTargetPrice(this.value)"></div>
+    <div class="grid2"><div class="field"><label>Início da campanha</label><input id="kfStart" type="date" value="${k.startDate || ''}" onchange="kitDraft.startDate=this.value"></div><div class="field"><label>Fim da campanha</label><input id="kfEnd" type="date" value="${k.endDate || ''}" onchange="kitDraft.endDate=this.value"></div></div>
+    <div class="grid2"><div class="field"><label>Limite de kits na campanha</label><input id="kfMax" type="number" min="0" step="1" value="${k.maxKits || ''}" placeholder="Sem limite" oninput="kitDraft.maxKits=this.value;updateKitSim()"></div><div class="field"><label>Ordem</label><input id="kfOrder" type="number" value="${k.order || 1}" oninput="kitDraft.order=Number(this.value)||1"></div></div>
+    <label class="checkRow"><input type="checkbox" ${k.active !== false ? 'checked' : ''} onchange="kitDraft.active=this.checked"> Kit ativo (visível no catálogo)</label><br>
+    <label class="checkRow"><input type="checkbox" ${k.featured ? 'checked' : ''} onchange="kitDraft.featured=this.checked"> Destaque (aparece primeiro)</label><br>
+    <label class="checkRow"><input type="checkbox" ${k.showAvailable ? 'checked' : ''} onchange="kitDraft.showAvailable=this.checked"> Mostrar ao cliente quantos kits restam</label>
+    <div class="field" style="margin-top:12px"><label>Imagem do kit (opcional — sem imagem, mostra as fotos dos produtos)</label><input id="kfImageUrl" value="${esc(k.image || '')}" placeholder="https://..." oninput="kitDraft.image=this.value.trim();$('kfPreview').innerHTML=kitDraft.image?'<img src=&quot;'+kitDraft.image+'&quot;>':'Sem imagem'"><input type="file" accept="image/*" style="margin-top:6px" onchange="handleUpload(event,'kfPreview',u=>{kitDraft.image=u;$('kfImageUrl').value=u})"></div>
+    <div id="kfPreview" class="adminImagePreviewLarge" style="height:130px">${k.image ? `<img src="${esc(k.image)}">` : 'Sem imagem'}</div>
+  </div><div>
+    <h3 style="font-family:Georgia,serif;font-weight:500;margin:0 0 8px">Produtos do kit</h3>
+    <div class="kitPicker"><select id="kfProd"><option value="">Selecione um produto para incluir…</option>${prodOpts}</select><input id="kfProdQty" type="number" min="1" value="1" title="Quantidade por kit"><button class="btn primary" onclick="addKitItem()">+ Incluir</button></div>
+    <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Qtd./kit</th><th>Subtotal</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
+    <div id="kfSim"></div>
+    <div class="simTarget"><div class="row"><b>Simular campanha:</b> quero montar <input id="kfSimQty" type="number" min="1" value="${k.simQty || 10}" oninput="updateKitSim()"> kits</div><div id="kfSimTarget"></div></div>
+  </div></div>
+  <div id="kfError" class="error hidden"></div>
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveKit()">Salvar kit</button></div>`;
+}
+function openKitEditor(k, title) { kitDraft = JSON.parse(JSON.stringify(k)); kitDraft.items = kitDraft.items || []; showModal(title, kitEditorHtml(kitDraft), true); updateKitSim(); }
+function newKit() { openKitEditor({ active: true, featured: false, showAvailable: false, discountType: 'percent', discount: 10, order: (data.kits || []).length + 1, items: [] }, 'Novo kit promocional'); }
+function editKit(id) { openKitEditor(data.kits.find(x => x.id === id), 'Editar kit promocional'); }
+function duplicateKit(id) { const k = JSON.parse(JSON.stringify(data.kits.find(x => x.id === id))); delete k.id; k.name = k.name + ' (cópia)'; k.active = false; openKitEditor(k, 'Novo kit (cópia)'); }
+function addKitItem() {
+  const pid = Number($('kfProd').value), q = Math.max(1, parseInt($('kfProdQty').value) || 1);
+  if (!pid) return toast('Selecione um produto');
+  const e = kitDraft.items.find(i => Number(i.productId) === pid);
+  e ? e.qty = Number(e.qty) + q : kitDraft.items.push({ productId: pid, qty: q });
+  $('kfProd').value = ''; $('kfProdQty').value = 1; updateKitSim();
+}
+function setKitItemQty(pid, v) { const e = kitDraft.items.find(i => Number(i.productId) === pid); if (e) { e.qty = Math.max(1, parseInt(v) || 1); updateKitSim(); } }
+function removeKitItem(pid) { kitDraft.items = kitDraft.items.filter(i => Number(i.productId) !== pid); updateKitSim(); }
+function setKitTargetPrice(v) {
+  const c = kitCalc({ ...kitDraft, discount: 0 }), target = Number(v);
+  if (!c.full || !(target > 0)) return;
+  if (target > c.full) return toast('O preço final não pode ser maior que o valor cheio (' + BRL(c.full) + ')');
+  kitDraft.discountType = 'value'; kitDraft.discount = Math.round((c.full - target) * 100) / 100;
+  $('kfDiscType').value = 'value'; $('kfDisc').value = kitDraft.discount; $('kfTarget').value = ''; updateKitSim();
+}
+function updateKitSim() {
+  if (!kitDraft) return;
+  const c = kitCalc(kitDraft);
+  $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.subtotal)}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
+    : '<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
+  const n = c.maxKits;
+  $('kfSim').innerHTML = `<div class="simBox"><h4>Simulação do kit</h4><div class="simGrid">
+    <div class="simStat"><small>Preço cheio (itens)</small><strong>${BRL(c.full)}</strong></div>
+    <div class="simStat"><small>Desconto</small><strong>${BRL(c.saving)} <span style="font-size:11px">(${c.pct.toFixed(1).replace('.', ',')}%)</span></strong></div>
+    <div class="simStat hl"><small>Preço do kit</small><strong>${BRL(c.price)}</strong></div>
+    <div class="simStat hl"><small>Kits possíveis</small><strong>${n == null ? 'Sem limite' : n.toLocaleString('pt-BR')}</strong></div>
+    <div class="simStat"><small>Unidades por kit</small><strong>${c.rows.reduce((a, r) => a + r.qty, 0)}</strong></div>
+    <div class="simStat"><small>Faturamento máximo</small><strong>${n == null ? '—' : BRL(n * c.price)}</strong></div>
+    <div class="simStat"><small>Valor cheio desses kits</small><strong>${n == null ? '—' : BRL(n * c.full)}</strong></div>
+    <div class="simStat"><small>Desconto total concedido</small><strong>${n == null ? '—' : BRL(n * c.saving)}</strong></div>
+  </div><div class="simNote">${!c.rows.length ? 'Inclua produtos para simular.' : n == null ? 'Nenhum produto do kit tem estoque informado, então não há limite de kits. Informe o "Estoque (quantidade)" nos produtos para calcular.' : n === 0 ? `<b>Não é possível montar nenhum kit</b> — limitado por: ${esc(c.limiting)}.` : `Item que limita o kit: <b>${esc(c.limiting)}</b>. ${c.rows.filter(r => r.perItem != null).length < c.rows.length ? 'Produtos sem estoque informado não limitam o cálculo.' : ''}`}</div></div>`;
+  const want = Math.max(1, parseInt($('kfSimQty')?.value) || 1);
+  $('kfSimTarget').innerHTML = c.rows.length ? `<table class="kitComp" style="margin-top:8px"><thead><tr><th>Produto</th><th>Necessário</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${c.rows.map(r => { const need = r.qty * want, falta = r.stock == null ? 0 : need - r.stock; return `<tr><td>${esc(r.p.name)}</td><td>${need.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '—' : r.stock.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '<span class="muted">sem controle</span>' : falta > 0 ? `<span class="short">faltam ${falta.toLocaleString('pt-BR')}</span>` : `<span class="ok">ok (sobram ${(-falta).toLocaleString('pt-BR')})</span>`}</td></tr>`; }).join('')}</tbody></table>
+    <div class="total" style="margin-top:8px;font-size:12px"><span>${want} kits × ${BRL(c.price)}</span><b class="grand">${BRL(want * c.price)}</b></div><div class="small muted">Valor cheio: ${BRL(want * c.full)} • desconto total: ${BRL(want * c.saving)}${n != null && want > n ? ` • <span class="short">acima do possível (${n})</span>` : ''}</div>` : '';
+}
+function saveKit() {
+  const k = kitDraft, err = $('kfError');
+  k.name = $('kfName').value.trim(); k.description = $('kfDesc').value.trim(); k.discount = Number($('kfDisc').value) || 0; k.discountType = $('kfDiscType').value;
+  k.startDate = $('kfStart').value; k.endDate = $('kfEnd').value; k.maxKits = $('kfMax').value ? Math.max(0, parseInt($('kfMax').value) || 0) : ''; k.order = Number($('kfOrder').value) || 1; k.image = $('kfImageUrl').value.trim();
+  k.simQty = Math.max(1, parseInt($('kfSimQty').value) || 1);
+  const c = kitCalc(k);
+  const msg = !k.name ? 'Informe o nome do kit.' : !k.items.length ? 'Inclua ao menos um produto no kit.' : (k.discountType === 'percent' && k.discount > 100) ? 'O desconto percentual não pode passar de 100%.' : (k.discountType === 'value' && k.discount > c.full) ? 'O desconto não pode ser maior que o valor cheio do kit.' : (k.startDate && k.endDate && k.endDate < k.startDate) ? 'A data final é anterior à inicial.' : '';
+  if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
+  data.kits = data.kits || [];
+  if (k.id) Object.assign(data.kits.find(x => x.id === k.id), k); else { k.id = nextId(data.kits); data.kits.push(k); }
+  kitDraft = null; closeModal(); saveData('Kit salvo e publicado');
+}
+function toggleKit(id) { const k = data.kits.find(x => x.id === id); k.active = !k.active; saveData(k.active ? 'Kit ativado' : 'Kit desativado'); }
+function deleteKit(id) { if (!confirm('Excluir este kit? Pedidos já feitos com ele continuam no histórico.')) return; data.kits = data.kits.filter(x => x.id !== id); saveData('Kit excluído'); }
+
 /* ---------------------------------------------------------------- util */
-function showModal(title, body) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; $('modal').classList.add('on'); }
+function showModal(title, body, wide) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; document.querySelector('#modal .modalCard').classList.toggle('wide', !!wide); $('modal').classList.add('on'); }
 function closeModal() { $('modal').classList.remove('on'); }
 let toastTimer;
 function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => e.classList.remove('show'), 2400); }

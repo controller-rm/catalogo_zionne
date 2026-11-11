@@ -511,7 +511,58 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .shareBox{background:#f7f4ec;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:11px;word-break:break-all;margin:8px 0}
 .mobileLogout{display:none;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700}
 @media(max-width:760px){.sidebar{flex-direction:row!important;overflow:hidden!important}.sidebar .partnerCard{display:none}.mobileLogout{display:block}}
-.tag.blue{background:#e8eff8;color:#49729a}.tag.red{background:#fbe9e7;color:#a34b44}
+.tag.blue{background:#e8eff8;color:#49729a}
+/* ===== Kits promocionais ===== */
+.kitsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.kitCard{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:.2s;position:relative}
+.kitCard:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.kitCard.inCart{border-color:#78a462;box-shadow:0 0 0 2px rgba(101,149,72,.12)}
+.kitCard.soldOut{opacity:.72}
+.kitBadge{position:absolute;left:12px;top:12px;z-index:2;background:#a8452f;color:#fff;font-weight:800;font-size:12px;border-radius:999px;padding:6px 10px;box-shadow:0 6px 14px rgba(0,0,0,.15)}
+.kitBadge.gold{background:#b69a67}
+.kitPic{height:190px;background:#f3f0e8;position:relative;overflow:hidden;cursor:pointer}
+.kitPic>img{width:100%;height:100%;object-fit:cover}
+.kitMosaic{display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;gap:3px;height:100%;padding:3px;background:#efebe2}
+.kitMosaic div{background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px}
+.kitMosaic img{width:100%;height:100%;object-fit:contain;padding:6px}
+.kitMosaic .more{font-size:13px;font-weight:800;color:#0b4b37;background:#e9efe2}
+.kitBody{padding:13px;display:flex;flex-direction:column;flex:1}
+.kitKicker{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#a8452f;font-weight:800}
+.kitBody h3{font-family:Georgia,serif;font-weight:500;font-size:19px;margin:5px 0 4px;color:#0b4b37}
+.kitBody .desc{height:auto;max-height:30px}
+.kitItems{list-style:none;margin:9px 0;padding:8px 10px;background:#faf8f3;border:1px solid #efeadf;border-radius:8px;font-size:10px;line-height:1.7;color:#4d554d}
+.kitItems b{color:#0b4b37}
+.kitPrices{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:auto}
+.kitFull{font-size:11px;color:#8a8379;text-decoration:line-through}
+.kitPrice{font-size:21px;font-weight:800;color:#0d4d36}
+.kitSave{font-size:9px;color:#a8452f;font-weight:800;background:#fbece8;border-radius:999px;padding:3px 7px}
+.kitMeta{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:var(--muted);margin-top:6px}
+.kitArea{margin-top:24px}
+/* admin kit editor */
+.modalCard.wide{width:min(1120px,100%)}
+.kitEditor{display:grid;grid-template-columns:330px 1fr;gap:16px}
+.kitComp{width:100%;min-width:0;border-collapse:collapse}.kitComp th,.kitComp td{font-size:10px;padding:7px 6px;border-bottom:1px solid #ece8df;text-align:left}
+.kitComp input{width:62px;border:1px solid var(--line);border-radius:6px;padding:5px;text-align:center}
+.kitComp td.lim{color:#a8452f;font-weight:800}
+.kitPicker{display:grid;grid-template-columns:1fr 70px auto;gap:6px;margin-bottom:10px}
+.kitPicker input,.kitPicker select{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;min-width:0}
+.simBox{background:#073e2c;color:#fff;border-radius:11px;padding:15px;margin-top:12px}
+.simBox h4{margin:0 0 10px;font-family:Georgia,serif;font-weight:500;font-size:18px}
+.simGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.simStat{background:rgba(255,255,255,.08);border-radius:8px;padding:9px}
+.simStat small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.7)}
+.simStat strong{display:block;font-size:17px;margin-top:4px}
+.simStat.hl{background:#f3e7c9;color:#3c2f12}.simStat.hl small{color:#7c6a3f}
+.simNote{font-size:10px;color:rgba(255,255,255,.8);margin-top:9px;line-height:1.5}
+.simTarget{background:#faf8f3;border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
+.simTarget .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px}
+.simTarget input{width:80px;border:1px solid var(--line);border-radius:7px;padding:7px;text-align:center}
+.short{color:#a8452f;font-weight:800}.ok{color:#3d7040;font-weight:800}
+.cartItem .kitTag{display:inline-block;font-size:8px;background:#fbece8;color:#a8452f;border-radius:999px;padding:2px 6px;margin-left:5px;font-weight:800;vertical-align:middle}
+.cartItem .comps{display:block;font-size:9px;color:#7b7468;margin-top:3px;line-height:1.5}
+.orderItems tr.comp td{color:#7b7468;font-size:9px;padding-top:2px;padding-bottom:2px;border-bottom:0}
+@media(max-width:900px){.kitEditor{grid-template-columns:1fr}.simGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.side:nth-child(n+7){display:none}.side:nth-child(6){display:flex!important}}.tag.red{background:#fbe9e7;color:#a34b44}
 </style>
 </head>
 <body>
@@ -537,7 +588,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 <header class="topbar">
  <div class="brand" id="brandClick"><img src="/static/img/logo.png"></div>
  <div class="topsearch"><input id="topSearch" placeholder="Buscar produto, coleção ou código..." oninput="syncSearch(this.value)"><span>⌕</span></div>
- <nav class="topnav"><button onclick="goto('catalog')">Catálogo</button><button onclick="goto('collections')">Coleções</button><button onclick="goto('orders')">Meus Pedidos <span id="topOrders" style="background:#d7dfbb;color:#294a33;padding:3px 6px;border-radius:999px;font-size:9px;margin-left:4px">0</span></button></nav>
+ <nav class="topnav"><button onclick="goto('catalog')">Catálogo</button><button onclick="goto('collections')">Coleções</button><button onclick="goto('kitsArea')">Kits</button><button onclick="goto('orders')">Meus Pedidos <span id="topOrders" style="background:#d7dfbb;color:#294a33;padding:3px 6px;border-radius:999px;font-size:9px;margin-left:4px">0</span></button></nav>
  <div class="topright"><button class="cartbtn" onclick="openCart()">🛒<span id="cartCount" class="bubble">0</span></button><button class="mobileLogout" onclick="logoutCatalog()">Sair</button><div class="clientTop"><b id="clientNameTop"></b><small id="validTop"></small></div></div>
 </header>
 <div class="workspace">
@@ -545,6 +596,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
   <button class="side active" onclick="goto('home',this)"><i>⌂</i>Início</button>
   <button class="side" onclick="goto('catalog',this)"><i>▣</i>Catálogo</button>
   <button class="side" onclick="goto('collections',this)"><i>♧</i>Coleções</button>
+  <button class="side" onclick="goto('kitsArea',this)"><i>✦</i>Kits</button>
   <button class="side" onclick="openCart()"><i>▤</i>Meu Pedido<span id="sideCart" class="scount">0</span></button>
   <button class="side" onclick="goto('orders',this)"><i>▧</i>Meus Pedidos<span id="sideOrders" class="scount">0</span></button>
   <button class="side" onclick="goto('orders',this)"><i>▥</i>Meus PDFs</button>
@@ -580,6 +632,10 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    <div id="benefits" class="benefits benefitsV7"></div>
    <div id="collections" class="sectionHead collectionsHeadV7"><div><h2 id="collectionsTitle">Coleções em destaque</h2></div><button class="link" onclick="filterCollection('')">Ver todas →</button></div>
    <div id="collectionCards" class="collections"></div>
+   <section id="kitsArea" class="kitArea hidden">
+    <div class="sectionHead"><div><h2>Kits promocionais</h2><p>Combinações prontas com preço especial de campanha.</p></div></div>
+    <div id="kitCards" class="kitsGrid"></div>
+   </section>
   </section>
   <section id="catalog" style="margin-top:28px">
    <div class="sectionHead"><div><h2>Catálogo de produtos</h2><p>Produtos disponíveis para sua tabela comercial.</p></div></div>
@@ -606,6 +662,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    <button class="active" onclick="adminTab('dashboard',this)">⌂ Dashboard</button>
    <button onclick="adminTab('ordersAdmin',this)">▧ Pedidos <span id="adminOrdersCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('productsAdmin',this)">▣ Produtos</button>
+   <button onclick="adminTab('kitsAdmin',this)">✦ Kits promocionais <span id="adminKitCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('collectionsAdmin',this)">♧ Coleções</button>
    <button onclick="adminTab('noticesAdmin',this)">✦ Avisos / Campanhas <span id="adminNoticeCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('inspirationAdmin',this)">▱ Inspirações <span id="adminInspireCount" class="adminBadgeCount">0</span></button>
@@ -631,7 +688,13 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    <section id="productsAdmin" class="adminSection">
     <div class="adminTitle"><div><h1>Produtos</h1><p>Cadastre, altere preço, imagem, descrição e status.</p></div><button class="btn primary" onclick="newProduct()">+ Novo produto</button></div>
     <div class="panel"><div class="controls"><input id="adminProductSearch" placeholder="Pesquisar produto..." oninput="renderAdminProducts()"><select id="adminProductCollection" onchange="renderAdminProducts()"><option value="">Todas as coleções</option></select></div>
-    <div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
+    <div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Estoque</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
+   </section>
+
+   <section id="kitsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Kits promocionais</h1><p>Monte kits com produtos do catálogo, simule quantos kits o estoque permite e aplique desconto de campanha.</p></div><button class="btn primary" onclick="newKit()">+ Novo kit</button></div>
+    <div class="panel"><div class="dateNote">O número de kits possíveis usa o campo <b>Estoque (quantidade)</b> de cada produto. Produtos sem estoque informado não limitam o kit. Opcionalmente defina um limite de kits para a campanha.</div></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Kit</th><th>Itens</th><th>Preço cheio</th><th>Desconto</th><th>Preço do kit</th><th>Kits possíveis</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminKitsBody"></tbody></table></div></div>
    </section>
 
    <section id="collectionsAdmin" class="adminSection">
