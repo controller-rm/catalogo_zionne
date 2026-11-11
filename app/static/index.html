@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zionne • Catálogo Virtual + Administração</title>
+<style>
+:root{
+ --g:#073f2c;--g2:#0c5239;--g3:#265e42;--cream:#f7f4ed;--paper:#fffefa;
+ --ink:#202420;--muted:#6a706a;--line:#e3ded3;--soft:#eef1e7;--lime:#679546;
+ --gold:#b69a67;--danger:#a84e46;--warn:#b77a22;--blue:#49759d;--shadow:0 15px 38px rgba(20,45,30,.10)
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--cream);color:var(--ink)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:11px}.right{margin-left:auto}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 12px;border-radius:8px;font-weight:650}.btn:hover{background:#f7f6f2}
+.btn.primary{background:var(--g);color:#fff;border-color:var(--g)}.btn.primary:hover{background:var(--g2)}
+.btn.danger{background:#fff;color:var(--danger);border-color:#ddb8b5}.btn.warn{background:#fff8e9;color:#8d651e;border-color:#ead8ad}
+.field{margin:12px 0}.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#596059;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 11px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#8caa92;box-shadow:0 0 0 3px rgba(7,63,44,.08)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:800}.tag.on{background:#e9f3e7;color:#3d7040}.tag.off{background:#f1efec;color:#777}.tag.warn{background:#fff2d8;color:#916820}
+.topbar{height:60px;background:linear-gradient(90deg,#063c2a,#0b4832);color:#fff;display:flex;align-items:center;position:sticky;top:0;z-index:40;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.brand{width:195px;height:100%;display:flex;align-items:center;padding:0 20px;border-right:1px solid rgba(255,255,255,.10)}.brand img{width:124px;max-height:48px;object-fit:contain;filter:brightness(0) invert(1)}
+.topsearch{position:relative;width:285px;margin-left:17px}.topsearch input{width:100%;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:10px 36px 10px 12px}.topsearch input::placeholder{color:rgba(255,255,255,.7)}
+.topsearch span{position:absolute;right:10px;top:8px;font-size:18px}.topnav{display:flex;margin-left:22px}.topnav button{background:transparent;border:0;color:#fff;padding:10px 15px;border-radius:8px}.topnav button:hover{background:rgba(255,255,255,.08)}
+.topright{display:flex;align-items:center;gap:14px;margin-left:auto;padding-right:15px}.cartbtn{position:relative;border:0;background:transparent;color:#fff;font-size:24px}.bubble{position:absolute;right:-7px;top:-6px;background:#76a448;color:#fff;border-radius:999px;min-width:20px;height:20px;display:grid;place-items:center;font-size:10px;font-weight:800}
+.clientTop b{font-size:11px}.clientTop small{display:block;color:rgba(255,255,255,.74);font-size:9px;margin-top:2px}
+.workspace{display:grid;grid-template-columns:195px 1fr;min-height:calc(100vh - 60px)}.sidebar{background:#fcfbf7;border-right:1px solid var(--line);padding:17px 12px;position:sticky;top:60px;height:calc(100vh - 60px)}
+.side{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;background:transparent;border-radius:8px;text-align:left;font-size:12px;margin-bottom:3px}.side:hover{background:#eff1e8}.side.active{background:#e1e8d5;font-weight:700}.side i{font-style:normal;width:18px;font-size:16px}.scount{margin-left:auto;background:#5f923f;color:#fff;border-radius:999px;padding:3px 6px;font-size:9px}
+.content{max-width:1300px;width:100%;padding:20px 22px 28px;margin:auto}
+.hero{height:300px;border-radius:10px;overflow:hidden;position:relative;background:
+ linear-gradient(90deg,rgba(252,249,241,.99) 0%,rgba(252,249,241,.9) 39%,rgba(252,249,241,.16) 64%,rgba(252,249,241,0) 100%),
+ linear-gradient(120deg,#f8f2e7 0 51%,#d8ddc8 51% 68%,#a3ae91 68% 82%,#38543a 82%);box-shadow:inset 0 0 0 1px rgba(70,80,60,.05)}
+.hero:before{content:"";position:absolute;right:9%;top:43px;width:268px;height:180px;border-radius:50%;background:#fdfcf7;box-shadow:0 0 0 15px rgba(102,121,88,.2),0 24px 31px rgba(40,50,37,.17);transform:rotate(-8deg)}
+.hero:after{content:"";position:absolute;right:20%;top:88px;width:115px;height:76px;background:#fff;border-radius:0 0 57px 57px;box-shadow:0 0 0 4px #cfd8c6;transform:rotate(-8deg)}
+.heroText{position:relative;z-index:2;padding:36px 32px;max-width:480px}.heroText h1{font-family:Georgia,serif;color:#083f2d;font-size:35px;font-weight:500;line-height:1.15;margin:0 0 13px}.heroText p{font-size:14px;line-height:1.65;max-width:350px}.heroText button{background:var(--g);color:#fff;border:0;border-radius:7px;padding:11px 18px;margin-top:9px}
+.sectionHead{display:flex;align-items:end;justify-content:space-between;margin:19px 0 11px}.sectionHead h2{margin:0;font-size:20px}.sectionHead p{margin:4px 0 0;font-size:11px;color:var(--muted)}
+.collections{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.collection{background:#fff;border:1px solid var(--line);border-radius:9px;overflow:hidden;transition:.2s}.collection:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.cpic{height:155px;position:relative;overflow:hidden}.cpic:before{content:"";position:absolute;left:23%;top:14%;width:55%;height:55%;border-radius:50%;background:#fff;box-shadow:0 0 0 7px rgba(90,100,80,.14),0 14px 18px rgba(0,0,0,.13)}.cpic:after{content:"";position:absolute;left:38%;top:28%;width:30%;height:25%;background:#fff;border-radius:0 0 32px 32px;box-shadow:0 0 0 3px rgba(80,90,70,.18)}
+.collectionBody{padding:10px}.collectionBody b{font-size:12px}.collectionBody span{display:block;font-size:10px;color:#4f6654;margin-top:6px}
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;border-top:1px solid var(--line);margin-top:17px;padding-top:17px}.benefit{display:flex;gap:10px;align-items:center}.benefit .ico{font-size:24px;color:#538737}.benefit b{display:block;font-size:10px}.benefit span{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.controls input,.controls select{border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 11px;min-width:170px}
+.products{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.product{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:.2s}.product:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.productImg{height:170px;background:#ebe8df;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}.productImg img{width:100%;height:100%;object-fit:contain;background:#fff;padding:8px}.placeholderPlate{width:112px;height:112px;border-radius:50%;background:#fff;box-shadow:0 0 0 7px rgba(75,96,72,.14),0 18px 20px rgba(0,0,0,.12);position:relative}.placeholderPlate:after{content:"";position:absolute;inset:20px;border:3px solid currentColor;border-radius:50%;opacity:.28}
+.productBody{padding:12px}.sku{font-size:9px;color:var(--muted)}.productBody h3{font-family:Georgia,serif;font-weight:500;font-size:17px;margin:5px 0}.desc{font-size:10px;color:var(--muted);height:29px;overflow:hidden;line-height:1.45}.priceRow{display:flex;justify-content:space-between;align-items:center;margin-top:10px}.price{font-weight:800;color:#0d4d36}.stock{font-size:8px;padding:4px 7px;border-radius:999px;background:#edf5e9;color:#4a763a}.add{display:flex;gap:7px;margin-top:9px}.add input{width:52px;text-align:center;border:1px solid var(--line);border-radius:7px}.add button{flex:1;background:var(--g);color:#fff;border:0;border-radius:7px;padding:8px;font-size:10px;font-weight:700}
+.tableWrap{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th{background:#f4f2ed;text-transform:uppercase;letter-spacing:.06em;color:#666;font-size:9px;text-align:left;padding:10px;border-bottom:1px solid var(--line)}td{font-size:10px;padding:11px;border-bottom:1px solid #ece8df}.link{border:0;background:none;color:#2f6946;font-weight:800;font-size:10px}
+.footer{margin-top:28px;background:#073e2c;color:#fff;border-radius:10px;padding:18px 21px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;align-items:center}.footer img{width:118px;filter:brightness(0) invert(1)}.footer p{font-size:9px;line-height:1.7;color:rgba(255,255,255,.77);margin:0}
+
+/* drawer */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:70}.overlay.on{display:block}.drawer{position:fixed;right:0;top:0;width:min(490px,100%);height:100vh;background:#fff;z-index:80;transform:translateX(110%);transition:.25s;box-shadow:-22px 0 50px rgba(0,0,0,.18);display:flex;flex-direction:column}.drawer.open{transform:none}
+.drawerHead{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line)}.drawerHead h2{font-family:Georgia,serif;font-weight:500;margin:0}.x{width:31px;height:31px;border-radius:50%;border:0;background:#f1efe8}.drawerBody{padding:15px 20px;overflow:auto;flex:1}.cartItem{display:grid;grid-template-columns:1fr auto;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.cartItem b{font-size:11px}.cartItem small{display:block;font-size:9px;color:var(--muted);margin-top:3px}.qctrl{display:flex;align-items:center;gap:5px}.qctrl button{width:25px;height:25px;border:1px solid var(--line);background:#fff;border-radius:6px}.drawerFoot{padding:15px 20px;background:#faf8f3;border-top:1px solid var(--line)}.total{display:flex;justify-content:space-between;margin:7px 0}.grand{font-size:19px;font-weight:800;color:#0b4934}.drawerActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.drawerActions .primary{grid-column:1/-1}
+
+/* login */
+.login{min-height:100vh;display:grid;grid-template-columns:1.05fr .95fr}.loginHero{background:linear-gradient(135deg,#063c2a,#0c5239 65%,#786f51);color:#fff;padding:52px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}.loginHero:after{content:"";position:absolute;width:500px;height:500px;border-radius:50%;border:1px solid rgba(255,255,255,.12);right:-160px;bottom:-160px;box-shadow:0 0 0 60px rgba(255,255,255,.025),0 0 0 120px rgba(255,255,255,.018)}.loginHero img{width:180px;filter:brightness(0) invert(1)}.loginHero h1{font-family:Georgia,serif;font-size:46px;font-weight:500;line-height:1.08;max-width:650px;position:relative;z-index:2}.loginHero p{max-width:590px;line-height:1.7;color:rgba(255,255,255,.78);position:relative;z-index:2}.loginPanel{display:flex;align-items:center;justify-content:center;padding:36px}.loginCard{width:min(455px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;box-shadow:var(--shadow)}.loginCard img{width:135px;height:90px;object-fit:contain}.loginCard h2{font-family:Georgia,serif;font-weight:500;font-size:30px;margin:5px 0}.tip{background:#f5f1e7;border:1px dashed #d3c6a6;border-radius:9px;padding:10px;font-size:10px;line-height:1.55;margin-top:12px}.error{background:#fff0ee;color:#8f4038;border:1px solid #e8bbb6;border-radius:8px;padding:9px;font-size:10px;margin-top:9px}
+
+/* admin */
+.adminShell{min-height:100vh;background:#f3f2ed}.adminTop{height:62px;background:#073e2c;color:#fff;display:flex;align-items:center;padding:0 18px;position:sticky;top:0;z-index:50}.adminTop img{width:120px;max-height:50px;object-fit:contain;filter:brightness(0) invert(1)}.adminTop .title{font-size:13px;margin-left:24px;border-left:1px solid rgba(255,255,255,.18);padding-left:24px}.adminTop .actions{margin-left:auto;display:flex;gap:8px}.adminTop .actions button{border-color:rgba(255,255,255,.25);background:transparent;color:#fff}
+.adminLayout{display:grid;grid-template-columns:210px 1fr}.adminSide{background:#fff;border-right:1px solid var(--line);min-height:calc(100vh - 62px);padding:15px 11px;position:sticky;top:62px;height:calc(100vh - 62px)}.adminSide button{width:100%;display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:10px 11px;border-radius:8px;text-align:left;font-size:11px;margin-bottom:3px}.adminSide button.active,.adminSide button:hover{background:#e8eee1}.adminMain{padding:22px;max-width:1280px;width:100%;margin:0 auto}.adminSection{display:none}.adminSection.active{display:block}.adminTitle{display:flex;align-items:end;justify-content:space-between;margin-bottom:14px}.adminTitle h1{font-family:Georgia,serif;font-size:27px;font-weight:500;margin:0}.adminTitle p{font-size:10px;color:var(--muted);margin:4px 0 0}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{background:#fff;border:1px solid var(--line);border-radius:10px;padding:17px}.metric small{font-size:8px;text-transform:uppercase;color:var(--muted);letter-spacing:.08em}.metric strong{display:block;font-family:Georgia,serif;font-weight:500;font-size:26px;margin-top:6px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:17px;margin-top:13px}.panel h3{font-family:Georgia,serif;font-weight:500;margin:0 0 11px;font-size:20px}.panelTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}.panelTitle h3{margin:0}
+.adminTable{width:100%;border-collapse:collapse;min-width:820px}.adminTable td,.adminTable th{padding:9px;font-size:9px}.thumb{width:46px;height:38px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid var(--line);padding:2px}.actionsCell{white-space:nowrap}.actionsCell button{border:0;background:none;font-size:9px;font-weight:750;color:#336645;margin-right:5px}.actionsCell button.red{color:#a34b44}
+.formCard{background:#faf9f5;border:1px solid var(--line);border-radius:9px;padding:14px}.checkRow{display:flex;align-items:center;gap:8px;font-size:11px}.checkRow input{width:auto}
+.imagePreview{width:170px;height:125px;background:#f0ede6;border:1px dashed #c9c3b5;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#888;font-size:10px}.imagePreview img{width:100%;height:100%;object-fit:contain;background:#fff;padding:6px}
+.notice{background:#edf5eb;border:1px solid #c9ddc4;color:#446d43;padding:10px;border-radius:8px;font-size:10px;line-height:1.5}
+.previewBox{border:1px solid var(--line);background:#fff;border-radius:10px;overflow:hidden}.previewHero{padding:25px;background:linear-gradient(120deg,#f7f1e6,#dce3ce);min-height:170px}.previewHero h2{font-family:Georgia,serif;color:#0a4632;font-weight:500;font-size:28px;margin:0 0 8px}.previewHero p{max-width:450px;font-size:11px;line-height:1.6}
+.switch{position:relative;width:36px;height:20px;display:inline-block}.switch input{display:none}.slider{position:absolute;inset:0;background:#bbb;border-radius:999px;transition:.2s}.slider:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s}.switch input:checked+.slider{background:#599142}.switch input:checked+.slider:before{transform:translateX(16px)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,100px);background:#202a23;color:#fff;padding:10px 14px;border-radius:999px;font-size:10px;z-index:120;transition:.25s}.toast.show{transform:translate(-50%,0)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:110;display:none;align-items:center;justify-content:center;padding:18px}.modal.on{display:flex}.modalCard{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:13px;padding:18px;box-shadow:var(--shadow)}.modalHead{display:flex;align-items:center;justify-content:space-between}.modalHead h2{font-family:Georgia,serif;font-weight:500;margin:0}
+#printOrder{display:none}
+@media print{.topbar,.sidebar,.hero,.collections,.benefits,.controls,.products,.tableWrap,.footer,.drawer,.overlay,.modal,.toast,.sectionHead{display:none!important}.workspace{display:block}.content{max-width:none;padding:0}#printOrder{display:block!important}.print{padding:25px;font-family:Arial}.printHead{display:flex;justify-content:space-between;border-bottom:2px solid #16402e;padding-bottom:12px}.printHead img{width:125px}.print table{min-width:0}.print th,.print td{font-size:9px;padding:7px}.ptotal{margin-left:auto;width:250px;margin-top:15px}.ptotal div{display:flex;justify-content:space-between;padding:5px 0}}
+@media(max-width:1050px){.products{grid-template-columns:repeat(3,1fr)}.collections{grid-template-columns:repeat(3,1fr)}.topsearch{display:none}.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.login{grid-template-columns:1fr}.loginHero{display:none}.loginPanel{padding:16px}.workspace{display:block}.sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;height:58px;z-index:60;display:flex;padding:5px}.side{flex:1;flex-direction:column;gap:0;font-size:8px;padding:4px}.side:nth-child(n+6){display:none}.content{padding:13px 11px 75px}.brand{width:auto;border:0;padding:0 11px}.brand img{width:93px}.topnav{display:none}.clientTop{display:none}.collections{grid-template-columns:repeat(2,1fr)}.products{grid-template-columns:repeat(2,1fr)}.benefits{grid-template-columns:repeat(2,1fr)}.hero{height:255px}.heroText{padding:27px 20px}.heroText h1{font-size:27px}.adminLayout{display:block}.adminSide{position:static;height:auto;min-height:0;display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}.adminSide button{min-width:125px}.adminMain{padding:14px}.grid2,.grid3{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.footer{grid-template-columns:1fr}}
+@media(max-width:470px){.products{grid-template-columns:1fr}.collections{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr}.topright{padding-right:8px}}
+
+.hero.hasImage{background-size:cover;background-position:center;background-repeat:no-repeat}
+.hero.hasImage:before,.hero.hasImage:after{display:none}
+.hero.hasImage .heroShade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(251,248,240,.98) 0%,rgba(251,248,240,.91) 40%,rgba(251,248,240,.28) 67%,rgba(251,248,240,.04) 100%);z-index:1}
+.heroText{z-index:2}
+.adminLoginBox{max-width:420px;margin:0 auto}
+.adminLoginLogo{display:block;width:130px;height:90px;object-fit:contain;margin:0 auto 8px}
+.adminLoginHint{background:#f5f1e7;border:1px dashed #d3c6a6;border-radius:8px;padding:9px;font-size:10px;line-height:1.5;margin-top:10px}
+.bannerPreview{height:210px;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(120deg,#f7f1e6,#dce3ce);background-size:cover;background-position:center}
+.bannerPreview:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(252,249,241,.96),rgba(252,249,241,.78) 47%,rgba(252,249,241,.08) 100%)}
+.bannerPreviewText{position:absolute;z-index:2;left:25px;top:25px;max-width:70%}
+.bannerPreviewText h2{font-family:Georgia,serif;color:#0a4632;font-weight:500;font-size:27px;margin:0 0 8px}
+.bannerPreviewText p{font-size:11px;line-height:1.6}
+
+
+/* V6 - Avisos e Inspirações */
+.noticeArea,.inspirationArea{margin-top:24px}
+.noticeGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.noticeCard{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid;grid-template-columns:180px 1fr;min-height:190px;transition:.2s}
+.noticeCard:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.noticeImage{background:#f5f2ea;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.noticeImage img{width:100%;height:100%;object-fit:contain;background:#fff;padding:6px}
+.noticeContent{padding:16px;display:flex;flex-direction:column}
+.noticeKicker{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:#6d7f6f;font-weight:800}
+.noticeContent h3{font-family:Georgia,serif;font-weight:500;font-size:21px;margin:5px 0 8px;color:#174c37}
+.noticeContent p{font-size:10px;line-height:1.55;color:var(--muted);margin:0 0 10px}
+.noticeMeta{font-size:9px;color:#776e60;margin-top:auto}
+.noticeLink{display:inline-block;margin-top:10px;color:#2b6644;font-weight:800;font-size:10px;text-decoration:none}
+.noticeEmpty,.inspireEmpty{background:#fff;border:1px dashed var(--line);border-radius:10px;padding:20px;text-align:center;color:var(--muted);font-size:10px}
+
+.inspirationGrid{display:grid;grid-template-columns:1.5fr .75fr .75fr;gap:12px}
+.inspireCard{position:relative;border-radius:10px;overflow:hidden;min-height:260px;background:#e6e1d7;border:1px solid var(--line)}
+.inspireCard.small{min-height:260px}
+.inspireCard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.inspireCard:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.03) 35%,rgba(0,0,0,.64) 100%)}
+.inspireOverlay{position:absolute;z-index:2;left:18px;right:18px;bottom:16px;color:#fff}
+.inspireOverlay .k{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.8)}
+.inspireOverlay h3{font-family:Georgia,serif;font-size:23px;font-weight:500;margin:5px 0}
+.inspireOverlay p{font-size:10px;line-height:1.5;margin:0 0 8px;color:rgba(255,255,255,.88)}
+.inspireOverlay a{color:#fff;font-size:10px;font-weight:800;text-decoration:none}
+.inspireTitleIntro{max-width:650px}
+
+.adminBadgeCount{display:inline-flex;min-width:19px;height:19px;align-items:center;justify-content:center;border-radius:999px;background:#dce8d2;color:#315638;font-size:9px;font-weight:800;margin-left:auto}
+.listThumbWide{width:72px;height:46px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid var(--line);padding:2px}
+.adminImagePreviewLarge{width:100%;height:180px;background:#f1eee6;border:1px dashed #cbc4b7;border-radius:9px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#888;font-size:10px}
+.adminImagePreviewLarge img{width:100%;height:100%;object-fit:contain;background:#fff;padding:5px}
+.dateNote{background:#fff8e8;border:1px solid #eadbb4;color:#7e6a35;padding:9px;border-radius:8px;font-size:9px;line-height:1.5}
+@media(max-width:1000px){.noticeGrid{grid-template-columns:1fr}.inspirationGrid{grid-template-columns:1fr 1fr}.inspireCard:first-child{grid-column:1/-1}}
+@media(max-width:760px){.noticeCard{grid-template-columns:120px 1fr}.inspirationGrid{grid-template-columns:1fr}.inspireCard:first-child{grid-column:auto}.inspireCard,.inspireCard.small{min-height:230px}}
+@media(max-width:480px){.noticeCard{grid-template-columns:1fr}.noticeImage{height:190px}}
+
+
+/* =========================================================
+   V7 - Home editorial: Avisos + Inspirações lado a lado
+   ========================================================= */
+.homeEditorialGrid{
+ display:grid;
+ grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);
+ gap:14px;
+ margin-top:18px;
+ align-items:stretch
+}
+.homeEditorialGrid .noticeArea,
+.homeEditorialGrid .inspirationArea{margin-top:0}
+.editorialPanel{
+ background:#fbfaf6;
+ border:1px solid var(--line);
+ border-radius:12px;
+ padding:12px;
+ min-width:0;
+ overflow:hidden
+}
+.editorialHead{margin:0 0 10px;align-items:flex-start}
+.editorialHead h2{font-size:17px}
+.editorialHead p{font-size:9px;margin-top:3px}
+.editorialHead .link{white-space:nowrap;margin-top:2px}
+
+/* Aviso ocupa integralmente a coluna esquerda */
+.homeEditorialGrid .noticeGrid{display:grid;grid-template-columns:1fr;gap:10px}
+.homeEditorialGrid .noticeCard{
+ display:grid;
+ grid-template-columns:minmax(155px,38%) minmax(0,1fr);
+ min-height:258px;
+ height:258px;
+ border-radius:9px;
+ box-shadow:none
+}
+.homeEditorialGrid .noticeCard:hover{transform:none;box-shadow:var(--shadow)}
+.homeEditorialGrid .noticeImage{
+ height:100%;
+ min-height:0;
+ background:#fff
+}
+.homeEditorialGrid .noticeImage img{
+ width:100%;
+ height:100%;
+ object-fit:contain;
+ padding:5px;
+ background:#fff
+}
+.homeEditorialGrid .noticeContent{padding:17px 15px}
+.homeEditorialGrid .noticeContent h3{font-size:20px;line-height:1.12}
+.homeEditorialGrid .noticeContent p{font-size:9.5px;line-height:1.55}
+.homeEditorialGrid .noticeMeta{font-size:9px}
+
+/* Inspiração ocupa integralmente a coluna direita */
+.homeEditorialGrid .inspirationGrid{display:grid;grid-template-columns:1fr;gap:10px}
+.homeEditorialGrid .inspireCard,
+.homeEditorialGrid .inspireCard.small{
+ min-height:258px;
+ height:258px;
+ border-radius:9px
+}
+.homeEditorialGrid .inspireCard:first-child{grid-column:auto}
+.homeEditorialGrid .inspireOverlay{left:17px;right:17px;bottom:15px}
+.homeEditorialGrid .inspireOverlay h3{font-size:22px;line-height:1.1}
+
+/* Quando houver mais registros, manter layout elegante */
+.homeEditorialGrid .noticeCard:nth-child(n+2),
+.homeEditorialGrid .inspireCard:nth-child(n+2){display:none}
+
+/* Benefícios imediatamente abaixo do bloco editorial */
+.benefitsV7{
+ margin-top:12px;
+ margin-bottom:17px;
+ border:1px solid var(--line);
+ border-radius:10px;
+ background:#fbfaf6;
+ padding:10px 14px
+}
+.collectionsHeadV7{margin-top:0}
+
+/* Pequenos refinamentos para aproximar a referência aprovada */
+@media(min-width:1100px){
+ .content{max-width:1240px}
+ .hero{height:270px}
+}
+@media(max-width:1000px){
+ .homeEditorialGrid{grid-template-columns:1fr}
+ .homeEditorialGrid .noticeCard,
+ .homeEditorialGrid .inspireCard,
+ .homeEditorialGrid .inspireCard.small{height:250px;min-height:250px}
+}
+@media(max-width:620px){
+ .editorialPanel{padding:10px}
+ .homeEditorialGrid .noticeCard{grid-template-columns:120px minmax(0,1fr);height:235px;min-height:235px}
+ .homeEditorialGrid .inspireCard,
+ .homeEditorialGrid .inspireCard.small{height:235px;min-height:235px}
+ .homeEditorialGrid .noticeContent{padding:13px 11px}
+ .homeEditorialGrid .noticeContent h3{font-size:17px}
+}
+@media(max-width:450px){
+ .homeEditorialGrid .noticeCard{grid-template-columns:1fr;height:auto;min-height:0}
+ .homeEditorialGrid .noticeImage{height:235px}
+ .homeEditorialGrid .noticeContent{min-height:180px}
+}
+
+
+/* V8 - Parceiro Zionne / acesso / logout */
+.sidebar{display:flex;flex-direction:column}
+.partnerCard{
+ margin:16px 10px 12px;
+ padding:15px 12px 13px;
+ border-top:1px solid var(--line);
+ background:linear-gradient(180deg,#fbfaf6,#f6f3eb);
+ border-radius:10px;
+ font-size:10px
+}
+.partnerEyebrow{font-size:8px;letter-spacing:.12em;font-weight:800;color:#74836f;margin-bottom:6px}
+.partnerHello{font-family:Georgia,serif;color:#214d3b;font-size:14px;line-height:1.15}
+.partnerName{font-family:Georgia,serif;color:#0b4b37;font-size:17px;line-height:1.15;margin:1px 0 13px;font-weight:600;overflow-wrap:anywhere}
+.accessStatus{display:flex;align-items:center;gap:7px;font-size:10px;margin-bottom:12px;color:#18231e}
+.accessStatus span{width:8px;height:8px;border-radius:50%;background:#4d8d70;box-shadow:0 0 0 5px #e3eee7}
+.accessLabel{font-size:9px;color:#7c6d5b;margin-bottom:2px}
+.accessDate{font-family:Georgia,serif;font-size:18px;color:#1e372d;margin-bottom:8px}
+.validityTrack{height:5px;background:#e7e1d7;border-radius:999px;overflow:hidden}
+.validityProgress{height:100%;width:0;background:#b89555;border-radius:999px;transition:width .3s ease}
+.accessDays{font-size:9px;color:#866b50;margin-top:7px}
+.accessTable{font-size:9px;color:#74695d;margin-top:13px}
+.logoutBtn{
+ width:100%;margin-top:13px;border:1px solid #d5cbbd;background:#fff;color:#174d39;
+ border-radius:8px;padding:9px 8px;font:inherit;font-weight:800;cursor:pointer
+}
+.logoutBtn:hover{background:#0b4d39;color:#fff;border-color:#0b4d39}
+@media(max-height:760px){.partnerCard{margin-top:9px;padding-top:10px}.partnerName{margin-bottom:8px}.accessStatus{margin-bottom:8px}.accessTable{margin-top:8px}.logoutBtn{margin-top:9px}}
+
+
+.topnav{overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.topnav button{flex:0 0 auto}.topnav::-webkit-scrollbar{height:5px}.topnav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:999px}
+.sidebar{overflow-y:auto;overflow-x:auto;scrollbar-width:thin}.sidebar::-webkit-scrollbar{width:5px;height:5px}.sidebar::-webkit-scrollbar-thumb{background:#c9c7bc;border-radius:999px}
+.productImg{cursor:zoom-in}
+.imageZoomModal{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;padding:24px}
+.imageZoomModal.on{display:flex}.imageZoomModal img{max-width:94vw;max-height:90vh;object-fit:contain;background:#fff;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+.imageZoomClose{position:absolute;right:22px;top:18px;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#153f2e;font-size:24px;font-weight:800}
+.imageZoomHint{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.58);color:#fff;border-radius:999px;padding:7px 12px;font-size:10px}
+.cartSignal{margin-top:8px;padding:6px 8px;border-radius:7px;background:#e7f2e5;color:#386b3c;font-size:9px;font-weight:800;display:flex;justify-content:space-between;gap:8px}
+.cartSignal.hiddenSignal{display:none}.product.inCart{border-color:#78a462;box-shadow:0 0 0 2px rgba(101,149,72,.12)}
+.productRules{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.productRule{font-size:8px;color:#665f53;background:#f5f1e9;border:1px solid #e6dfd2;border-radius:999px;padding:4px 7px}
+.tokenGeneratorBox{background:#f7f4ec;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.generatedTokenV9{font-family:Consolas,monospace;font-size:15px;letter-spacing:.08em;background:#fff;border:1px dashed #b9ab88;border-radius:8px;padding:12px;text-align:center;color:#164b36;font-weight:800}
+.tokenActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+
+/* V10 - Zoom real da imagem */
+.imageZoomModal{padding:18px}
+.imageZoomModal img{
+ width:min(88vw,1100px);
+ height:min(84vh,820px);
+ max-width:none;
+ max-height:none;
+ object-fit:contain;
+ background:#fff;
+ padding:18px;
+ border-radius:14px;
+ box-shadow:0 28px 90px rgba(0,0,0,.50);
+ image-rendering:auto
+}
+.imageZoomClose{z-index:3}
+@media(max-width:760px){
+ .imageZoomModal img{width:94vw;height:78vh;padding:10px}
+}
+
+/* V10 - Resumo de compras por coleção */
+.collectionPurchaseSummary{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(150px,1fr));
+ gap:9px;
+ margin:12px 0 15px
+}
+.collectionSummaryCard{
+ background:#fff;
+ border:1px solid var(--line);
+ border-radius:9px;
+ padding:10px 11px;
+ min-width:0;
+ transition:.18s
+}
+.collectionSummaryCard.hasBuy{
+ border-color:#7fa76b;
+ box-shadow:0 0 0 2px rgba(93,145,64,.08)
+}
+.collectionSummaryName{
+ font-size:10px;
+ font-weight:800;
+ color:#174d38;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ margin-bottom:8px
+}
+.collectionSummaryStats{
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:5px
+}
+.collectionSummaryStat{
+ background:#f7f4ed;
+ border-radius:7px;
+ padding:6px 5px;
+ text-align:center
+}
+.collectionSummaryStat strong{
+ display:block;
+ font-size:14px;
+ color:#133f30;
+ line-height:1.05
+}
+.collectionSummaryStat span{
+ display:block;
+ margin-top:3px;
+ color:#726a5f;
+ font-size:7px;
+ line-height:1.15;
+ text-transform:uppercase;
+ letter-spacing:.03em
+}
+.collectionSummaryCard.hasBuy .collectionSummaryStat:nth-child(2),
+.collectionSummaryCard.hasBuy .collectionSummaryStat:nth-child(3){
+ background:#eaf4e7
+}
+.collectionSummaryLegend{
+ display:flex;
+ justify-content:space-between;
+ gap:10px;
+ align-items:center;
+ margin-top:4px;
+ font-size:8px;
+ color:var(--muted)
+}
+@media(max-width:1100px){
+ .collectionPurchaseSummary{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:760px){
+ .collectionPurchaseSummary{display:flex;overflow-x:auto;padding-bottom:5px}
+ .collectionSummaryCard{min-width:180px;flex:0 0 180px}
+}
+
+
+/* Totais por item - V10 atualizado */
+.cardItemTotal{
+ margin-top:7px;
+ padding:7px 8px;
+ border-radius:7px;
+ background:#f3f0e8;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+ font-size:9px;
+ color:#6d6558
+}
+.cardItemTotal strong{
+ color:#0b4b37;
+ font-size:12px
+}
+.cartItemTotal{
+ display:block;
+ margin-top:4px;
+ color:#0b4b37!important;
+ font-weight:800;
+ font-size:10px!important
+}
+
+
+/* Coleções com imagem própria */
+.collectionThumb{
+ width:68px;height:46px;border-radius:7px;object-fit:contain;
+ background:#fff;border:1px solid var(--line);padding:2px
+}
+.collectionThumbEmpty{
+ width:68px;height:46px;border-radius:7px;
+ background:linear-gradient(135deg,#eef1e7,#ded9cd);
+ border:1px solid var(--line)
+}
+.collection .cpic img{
+ width:100%;height:100%;object-fit:cover;display:block
+}
+.collection .cpic.hasImage:before,
+.collection .cpic.hasImage:after{display:none}
+.collectionImagePreview{
+ width:100%;height:180px;border-radius:9px;overflow:hidden;
+ border:1px dashed #cbc4b7;background:#f4f1e9;
+ display:flex;align-items:center;justify-content:center;color:#888;font-size:10px
+}
+.collectionImagePreview img{
+ width:100%;height:100%;object-fit:contain;background:#fff;padding:6px
+}
+
+
+.collectionBody .collectionDesc{
+ display:block;
+ margin-top:4px;
+ color:#766f64;
+ font-size:9px;
+ line-height:1.35;
+ min-height:24px
+}
+.saveConfirm{
+ margin-top:12px;
+ padding:10px 12px;
+ border-radius:8px;
+ background:#e8f3e5;
+ border:1px solid #c5ddbf;
+ color:#35673a;
+ font-size:10px;
+ font-weight:800
+}
+
+
+.collectionSaveStatus{
+ margin-top:12px;padding:10px 12px;border-radius:8px;font-size:10px;font-weight:800
+}
+.collectionSaveStatus.ok{background:#e8f3e5;border:1px solid #c5ddbf;color:#35673a}
+.collectionSaveStatus.err{background:#fff0ee;border:1px solid #e5b8b3;color:#9a423a}
+
+
+/* Coleções em destaque sem limite fixo */
+.collections{
+ grid-template-columns:repeat(auto-fit,minmax(185px,1fr))!important;
+}
+@media(min-width:1200px){
+ .collections{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important}
+}
+@media(max-width:760px){
+ .collections{
+  display:flex!important;
+  overflow-x:auto;
+  gap:10px;
+  padding-bottom:6px;
+  scroll-snap-type:x proximity
+ }
+ .collections .collection{
+  min-width:205px;
+  flex:0 0 205px;
+  scroll-snap-align:start
+ }
+}
+
+
+/* Coleções em destaque sempre em uma única linha horizontal */
+.collections{
+ display:flex!important;
+ flex-wrap:nowrap!important;
+ overflow-x:auto!important;
+ overflow-y:hidden!important;
+ gap:12px;
+ padding-bottom:8px;
+ scroll-behavior:smooth;
+ scroll-snap-type:x proximity;
+ scrollbar-width:thin;
+}
+.collections::-webkit-scrollbar{height:7px}
+.collections::-webkit-scrollbar-thumb{background:#c7c2b7;border-radius:999px}
+.collections::-webkit-scrollbar-track{background:transparent}
+.collections .collection{
+ flex:0 0 220px!important;
+ min-width:220px!important;
+ scroll-snap-align:start;
+}
+@media(min-width:1400px){
+ .collections .collection{flex-basis:230px!important;min-width:230px!important}
+}
+@media(max-width:760px){
+ .collections .collection{flex-basis:205px!important;min-width:205px!important}
+}
+
+
+/* ===== Versão online ===== */
+@media print{#loginView,#appView,#adminView,.modal,.toast,.drawer,.overlay,.imageZoomModal{display:none!important}#printOrder{display:block!important}}
+.loading{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:200;font-size:12px;color:var(--muted)}
+.loading img{width:130px;display:block;margin:0 auto 12px}
+.previewBar{background:#fff8e8;border-bottom:1px solid #eadbb4;color:#7e6a35;font-size:11px;padding:8px 16px;display:flex;align-items:center;gap:10px}
+.previewBar button{margin-left:auto}
+.statusSel{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:10px;background:#fff}
+.orderItems{width:100%;min-width:0;border-collapse:collapse;margin-top:10px}.orderItems td,.orderItems th{font-size:10px;padding:7px}
+.btnRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+.shareBox{background:#f7f4ec;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:Consolas,monospace;font-size:11px;word-break:break-all;margin:8px 0}
+.mobileLogout{display:none;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700}
+@media(max-width:760px){.sidebar{flex-direction:row!important;overflow:hidden!important}.sidebar .partnerCard{display:none}.mobileLogout{display:block}}
+.tag.blue{background:#e8eff8;color:#49729a}.tag.red{background:#fbe9e7;color:#a34b44}
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading"><div style="text-align:center"><img src="/static/img/logo.png" alt="Zionne">Carregando catálogo…</div></div>
+
+<section id="loginView" class="login hidden">
+ <div class="loginHero">
+  <div><img src="/static/img/logo.png"><h1>Catálogo Virtual Zionne</h1><p>Produtos, coleções, pedidos e relacionamento em um ambiente exclusivo para parceiros Zionne.</p></div>
+  <small style="position:relative;z-index:2;color:rgba(255,255,255,.65)">Acesso individual com token e validade</small>
+ </div>
+ <div class="loginPanel"><div class="loginCard"><img src="/static/img/logo.png"><h2>Bem-vindo</h2><p class="muted small">Informe seus dados para acessar o catálogo.</p>
+  <div class="field"><label>CNPJ / CPF</label><input id="loginDoc" autocomplete="username" placeholder="00.000.000/0000-00"></div>
+  <div class="field"><label>Token</label><input id="loginToken" autocomplete="current-password" placeholder="ZN-XXXX-XXXX-XXXX" onkeydown="if(event.key==='Enter')login()"></div>
+  <button id="loginBtn" class="btn primary" style="width:100%" onclick="login()">Acessar catálogo</button>
+  <div id="loginError" class="error hidden"></div>
+  <div class="tip">Ainda não tem acesso ou seu token venceu? <a href="javascript:void(0)" onclick="contactWhats('Olá, Zionne! Gostaria de solicitar acesso ao Catálogo Virtual.')" style="color:#2b6644;font-weight:800">Fale com a Zionne pelo WhatsApp</a>.</div>
+ </div></div>
+</section>
+
+<div id="appView" class="hidden">
+<div id="previewBar" class="previewBar hidden">👁 Você está vendo o catálogo como pré-visualização do administrador. Pedidos não são enviados neste modo.<button class="btn" onclick="openAdmin()">Voltar ao painel</button></div>
+<header class="topbar">
+ <div class="brand" id="brandClick"><img src="/static/img/logo.png"></div>
+ <div class="topsearch"><input id="topSearch" placeholder="Buscar produto, coleção ou código..." oninput="syncSearch(this.value)"><span>⌕</span></div>
+ <nav class="topnav"><button onclick="goto('catalog')">Catálogo</button><button onclick="goto('collections')">Coleções</button><button onclick="goto('orders')">Meus Pedidos <span id="topOrders" style="background:#d7dfbb;color:#294a33;padding:3px 6px;border-radius:999px;font-size:9px;margin-left:4px">0</span></button></nav>
+ <div class="topright"><button class="cartbtn" onclick="openCart()">🛒<span id="cartCount" class="bubble">0</span></button><button class="mobileLogout" onclick="logoutCatalog()">Sair</button><div class="clientTop"><b id="clientNameTop"></b><small id="validTop"></small></div></div>
+</header>
+<div class="workspace">
+ <aside class="sidebar">
+  <button class="side active" onclick="goto('home',this)"><i>⌂</i>Início</button>
+  <button class="side" onclick="goto('catalog',this)"><i>▣</i>Catálogo</button>
+  <button class="side" onclick="goto('collections',this)"><i>♧</i>Coleções</button>
+  <button class="side" onclick="openCart()"><i>▤</i>Meu Pedido<span id="sideCart" class="scount">0</span></button>
+  <button class="side" onclick="goto('orders',this)"><i>▧</i>Meus Pedidos<span id="sideOrders" class="scount">0</span></button>
+  <button class="side" onclick="goto('orders',this)"><i>▥</i>Meus PDFs</button>
+  <button class="side" onclick="goto('noticesArea',this)"><i>♢</i>Novidades</button>
+  <button class="side" onclick="contactWhats()"><i>◉</i>Fale com a Zionne</button>
+
+  <div class="partnerCard">
+   <div class="partnerEyebrow">PARCEIRO ZIONNE</div>
+   <div class="partnerHello">Olá,</div>
+   <div id="partnerClientName" class="partnerName">Cliente Zionne</div>
+   <div class="accessStatus"><span></span><b>Acesso ativo</b></div>
+   <div class="accessLabel">Validade do catálogo</div>
+   <div id="partnerValidity" class="accessDate">--/--/----</div>
+   <div class="validityTrack"><div id="validityProgress" class="validityProgress"></div></div>
+   <div id="partnerDays" class="accessDays"></div>
+   <div class="accessTable">Tabela: <b id="partnerPriceTable">—</b></div>
+   <button class="logoutBtn" onclick="logoutCatalog()">↪ Sair do catálogo</button>
+  </div>
+ </aside>
+ <main class="content">
+  <section id="home">
+   <div id="heroBanner" class="hero"><div class="heroShade"></div><div class="heroText"><h1 id="heroTitle"></h1><p id="heroSubtitle"></p><button id="heroButton" onclick="goto('collections')"></button></div></div>
+   <div class="homeEditorialGrid">
+    <section id="noticesArea" class="noticeArea editorialPanel">
+     <div class="sectionHead editorialHead"><div><h2 id="noticesTitle">Avisos e novidades</h2><p>Eventos, lançamentos e comunicados Zionne.</p></div><button class="link" onclick="showAllNotices()">Ver todos →</button></div>
+     <div id="noticeCards" class="noticeGrid"></div>
+    </section>
+    <section id="inspirationArea" class="inspirationArea editorialPanel">
+     <div class="sectionHead editorialHead"><div class="inspireTitleIntro"><h2 id="inspirationTitle">Inspire-se com a Zionne</h2><p id="inspirationSubtitle">Composições de mesa posta para valorizar coleções e criar novas experiências.</p></div><button class="link" onclick="showAllInspirations()">Ver todas →</button></div>
+     <div id="inspirationCards" class="inspirationGrid"></div>
+    </section>
+   </div>
+   <div id="benefits" class="benefits benefitsV7"></div>
+   <div id="collections" class="sectionHead collectionsHeadV7"><div><h2 id="collectionsTitle">Coleções em destaque</h2></div><button class="link" onclick="filterCollection('')">Ver todas →</button></div>
+   <div id="collectionCards" class="collections"></div>
+  </section>
+  <section id="catalog" style="margin-top:28px">
+   <div class="sectionHead"><div><h2>Catálogo de produtos</h2><p>Produtos disponíveis para sua tabela comercial.</p></div></div>
+   <div class="controls"><input id="search" placeholder="Pesquisar produto ou código" oninput="renderProducts()"><select id="collectionFilter" onchange="renderProducts()"><option value="">Todas as coleções</option></select></div>
+   <div class="collectionSummaryLegend"><span>Resumo da seleção por coleção</span><span>Atualizado automaticamente pelo carrinho</span></div>
+   <div id="collectionPurchaseSummary" class="collectionPurchaseSummary"></div>
+   <div id="products" class="products"></div>
+  </section>
+  <section id="orders" style="margin-top:28px">
+   <div class="sectionHead"><div><h2>Meus pedidos</h2><p>Pedidos enviados pelo catálogo e o andamento de cada um.</p></div><button class="link" onclick="loadMyOrders(true)">Atualizar ↻</button></div>
+   <div class="tableWrap"><table><thead><tr><th>Pedido</th><th>Data</th><th>Itens</th><th>Valor</th><th>Condição</th><th>Status</th><th></th></tr></thead>
+   <tbody id="myOrdersBody"></tbody></table></div>
+  </section>
+  <footer class="footer"><div><img src="/static/img/logo.png"></div><p id="footerInstitutional"></p><p id="footerContact"></p></footer>
+ </main>
+</div>
+</div>
+
+<!-- ADMIN -->
+<div id="adminView" class="adminShell hidden">
+ <header class="adminTop"><img src="/static/img/logo.png"><div class="title">Painel Administrativo do Catálogo</div><div class="actions"><button class="btn" onclick="exportConfig()">Exportar backup</button><button class="btn" onclick="previewCatalog()">Visualizar catálogo</button><button class="btn" onclick="logoutAdmin()">Sair</button></div></header>
+ <div class="adminLayout">
+  <aside class="adminSide">
+   <button class="active" onclick="adminTab('dashboard',this)">⌂ Dashboard</button>
+   <button onclick="adminTab('ordersAdmin',this)">▧ Pedidos <span id="adminOrdersCount" class="adminBadgeCount">0</span></button>
+   <button onclick="adminTab('productsAdmin',this)">▣ Produtos</button>
+   <button onclick="adminTab('collectionsAdmin',this)">♧ Coleções</button>
+   <button onclick="adminTab('noticesAdmin',this)">✦ Avisos / Campanhas <span id="adminNoticeCount" class="adminBadgeCount">0</span></button>
+   <button onclick="adminTab('inspirationAdmin',this)">▱ Inspirações <span id="adminInspireCount" class="adminBadgeCount">0</span></button>
+   <button onclick="adminTab('homeAdmin',this)">▤ Página Inicial</button>
+   <button onclick="adminTab('clientsAdmin',this)">♙ Clientes / Tokens</button>
+   <button onclick="adminTab('settingsAdmin',this)">⚙ Configurações</button>
+  </aside>
+  <main class="adminMain">
+   <section id="dashboard" class="adminSection active">
+    <div class="adminTitle"><div><h1>Dashboard</h1><p>Visão geral do catálogo virtual.</p></div><button class="btn primary" onclick="previewCatalog()">Abrir catálogo</button></div>
+    <div class="metrics"><div class="metric"><small>Produtos ativos</small><strong id="mProducts">0</strong></div><div class="metric"><small>Coleções ativas</small><strong id="mCollections">0</strong></div><div class="metric"><small>Pedidos novos</small><strong id="mOrdersNew">0</strong></div><div class="metric"><small>Clientes ativos</small><strong id="mClients">0</strong></div></div>
+    <div class="panel"><h3>Como funciona</h3><div class="notice">Tudo o que você salvar neste painel é gravado no servidor e aparece imediatamente para todos os clientes. Os pedidos finalizados pelos clientes chegam na aba <b>Pedidos</b>.</div></div>
+    <div class="panel"><h3>Compartilhar com clientes</h3><div class="grid3"><div class="formCard"><b class="small">1. Cadastre o cliente</b><p class="small muted">Em <b>Clientes / Tokens</b>, informe CNPJ/CPF, validade e gere o token.</p></div><div class="formCard"><b class="small">2. Envie o link</b><p class="small muted">Use o botão <b>Link</b> ou <b>WhatsApp</b> do cliente. O link já abre com CNPJ e token preenchidos.</p></div><div class="formCard"><b class="small">3. Receba os pedidos</b><p class="small muted">Acompanhe e atualize o status em <b>Pedidos</b>. O cliente vê o andamento em "Meus pedidos".</p></div></div>
+    <div class="field" style="margin-top:14px"><label>Endereço do catálogo</label><div class="shareBox" id="siteUrl"></div></div></div>
+   </section>
+
+   <section id="ordersAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Pedidos</h1><p>Pedidos recebidos pelo catálogo virtual.</p></div><div style="display:flex;gap:8px"><button class="btn" onclick="loadAdminOrders()">Atualizar ↻</button><button class="btn primary" onclick="exportOrdersCsv()">Exportar Excel (CSV)</button></div></div>
+    <div class="panel"><div class="controls"><input id="adminOrderSearch" placeholder="Pesquisar pedido ou cliente..." oninput="renderAdminOrders()"><select id="adminOrderStatus" onchange="renderAdminOrders()"><option value="">Todos os status</option></select></div>
+    <div class="tableWrap"><table class="adminTable"><thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Valor</th><th>Condição</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminOrdersBody"></tbody></table></div></div>
+   </section>
+
+   <section id="productsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Produtos</h1><p>Cadastre, altere preço, imagem, descrição e status.</p></div><button class="btn primary" onclick="newProduct()">+ Novo produto</button></div>
+    <div class="panel"><div class="controls"><input id="adminProductSearch" placeholder="Pesquisar produto..." oninput="renderAdminProducts()"><select id="adminProductCollection" onchange="renderAdminProducts()"><option value="">Todas as coleções</option></select></div>
+    <div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
+   </section>
+
+   <section id="collectionsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Coleções</h1><p>Defina quais coleções aparecem em destaque e sua ordem.</p></div><button class="btn primary" onclick="newCollection()">+ Nova coleção</button></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Ordem</th><th>Coleção</th><th>Descrição</th><th>Produtos</th><th>Destaque</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminCollectionsBody"></tbody></table></div></div>
+   </section>
+
+   <section id="noticesAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Avisos e Campanhas</h1><p>Gerencie eventos, feiras, comunicados e campanhas exibidos na Home.</p></div><button class="btn primary" onclick="newNotice()">+ Novo aviso</button></div>
+    <div class="panel"><div class="dateNote">Você pode definir uma data inicial e final. Fora desse período, o aviso deixa de ser exibido automaticamente no catálogo, mesmo permanecendo cadastrado no Admin.</div></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Título</th><th>Período</th><th>Ordem</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminNoticesBody"></tbody></table></div></div>
+   </section>
+
+   <section id="inspirationAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Inspirações / Mesa Posta</h1><p>Cadastre imagens editoriais e relacione-as a coleções ou produtos.</p></div><button class="btn primary" onclick="newInspiration()">+ Nova inspiração</button></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Título</th><th>Coleção / Link</th><th>Ordem</th><th>Destaque</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminInspirationsBody"></tbody></table></div></div>
+   </section>
+
+   <section id="homeAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Página Inicial</h1><p>Altere textos e benefícios sem editar HTML.</p></div><button class="btn primary" onclick="saveHome()">Salvar alterações</button></div>
+    <div class="grid2">
+     <div class="panel"><h3>Banner principal</h3><div class="field"><label>Título</label><textarea id="homeTitle" rows="2"></textarea></div><div class="field"><label>Subtítulo</label><textarea id="homeSubtitle" rows="3"></textarea></div><div class="field"><label>Texto do botão</label><input id="homeButton"></div><div class="field"><label>Título das coleções</label><input id="homeCollectionsTitle"></div><div class="field"><label>URL da imagem do banner</label><input id="homeBannerUrl" placeholder="https://.../banner.jpg" oninput="tempBannerImage=this.value.trim();previewBannerAdmin()"></div><div class="field"><label>Ou enviar uma imagem</label><input id="homeBannerFile" type="file" accept="image/*" onchange="loadBannerFile(event)"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="clearBannerImage()">Remover imagem do banner</button></div><p class="small muted">A imagem é enviada ao servidor e otimizada automaticamente. Clique em "Salvar alterações" para publicar.</p></div>
+     <div class="panel"><h3>Pré-visualização</h3><div id="bannerPreview" class="bannerPreview"><div class="bannerPreviewText"><h2 id="pvTitle"></h2><p id="pvSubtitle"></p><button class="btn primary" id="pvButton"></button></div></div></div>
+    </div>
+    <div class="panel"><div class="panelTitle"><h3>Informativos da Home</h3><span class="small muted">Título + descrição</span></div><div id="benefitEditor" class="grid2"></div></div>
+   </section>
+
+   <section id="clientsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Clientes e Tokens</h1><p>Controle de acesso, validade e envio do link para o cliente.</p></div><button class="btn primary" onclick="newClient()">+ Novo cliente</button></div>
+    <div class="tokenGeneratorBox">
+     <div class="panelTitle"><h3>Gerador de Token</h3><span class="small muted">Base: CNPJ/CPF + validade (gerado no servidor)</span></div>
+     <div class="grid3">
+      <div class="field"><label>CNPJ / CPF</label><input id="tgDoc" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>Validade</label><input id="tgValidity" type="date"></div>
+      <div class="field"><label>Nome do cliente (opcional)</label><input id="tgName" placeholder="Razão social"></div>
+     </div>
+     <button class="btn primary" onclick="generateTokenFromDocValidity()">Gerar token</button>
+     <div id="tgResultWrap" class="hidden" style="margin-top:12px"><div id="tgResult" class="generatedTokenV9"></div>
+     <div class="tokenActions"><button class="btn" onclick="copyText(lastGeneratedToken,'Token copiado')">Copiar token</button><button class="btn" onclick="useGeneratedTokenInClient()">Criar acesso com este token</button></div></div>
+    </div>
+    <div class="panel"><div class="controls"><input id="adminClientSearch" placeholder="Pesquisar cliente ou CNPJ..." oninput="renderClients()"></div><div class="tableWrap"><table class="adminTable"><thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Token</th><th>Validade</th><th>Tabela</th><th>Status</th><th>Ações</th></tr></thead><tbody id="clientsBody"></tbody></table></div></div>
+   </section>
+
+   <section id="settingsAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Configurações</h1><p>Dados institucionais, condições de pagamento e acesso administrativo.</p></div><button class="btn primary" onclick="saveSettings()">Salvar configurações</button></div>
+    <div class="grid2">
+     <div class="panel"><h3>Contato e rodapé</h3><div class="field"><label>WhatsApp (com DDI e DDD, só números)</label><input id="setWhats" placeholder="554130430595"></div><div class="field"><label>E-mail</label><input id="setEmail"></div><div class="field"><label>Texto institucional</label><textarea id="setInstitutional" rows="4"></textarea></div><div class="field"><label>Condições de pagamento (uma por linha)</label><textarea id="setPayments" rows="5"></textarea></div></div>
+     <div class="panel"><h3>Acesso administrativo</h3><div class="field"><label>Usuário</label><input id="setAdminUser" autocomplete="off"></div><div class="field"><label>Nova senha</label><input id="setAdminPassword" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter a atual"></div><p class="small muted">A senha é gravada criptografada no servidor (mínimo de 6 caracteres).</p></div>
+    </div>
+    <div class="panel"><h3>Backup</h3><p class="small muted">Exporte uma cópia de produtos, coleções, textos e clientes. Para trazer os dados do catálogo antigo (arquivo HTML V10), use lá o botão "Exportar JSON" e importe o arquivo aqui — as fotos embutidas são convertidas automaticamente.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportConfig()">Exportar JSON</button><label class="btn">Importar JSON<input type="file" accept=".json" style="display:none" onchange="importConfig(event)"></label></div></div>
+   </section>
+  </main>
+ </div>
+</div>
+
+<!-- CART -->
+<div id="overlay" class="overlay" onclick="closeCart()"></div>
+<aside id="cart" class="drawer"><div class="drawerHead"><h2>Meu Pedido</h2><button class="x" onclick="closeCart()">×</button></div><div class="drawerBody"><div id="cartItems"></div><div class="field"><label>Condição de pagamento</label><select id="payment"></select></div><div class="field"><label>Observação</label><textarea id="obs" rows="3"></textarea></div></div><div class="drawerFoot"><div class="total"><span>Subtotal</span><b id="subtotal">R$ 0,00</b></div><div class="total"><span>Total</span><span id="grand" class="grand">R$ 0,00</span></div><div class="drawerActions"><button class="btn" onclick="printPDF()">Gerar PDF</button><button class="btn" onclick="sendWhats()">WhatsApp</button><button class="btn primary" onclick="finalizeOrder()">Finalizar pedido</button></div></div></aside>
+
+<div id="modal" class="modal"><div class="modalCard"><div class="modalHead"><h2 id="modalTitle"></h2><button class="x" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
+<div id="imageZoomModal" class="imageZoomModal" onclick="closeImageZoom(event)">
+<button class="imageZoomClose" onclick="closeImageZoom(event)">×</button>
+<img id="imageZoomTarget" src="" alt="Detalhe do produto">
+<div class="imageZoomHint">Clique fora da imagem ou no × para fechar</div>
+</div>
+<section id="printOrder"></section>
+<div id="toast" class="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

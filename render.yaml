@@ -1,0 +1,29 @@
+# Deploy no Render.com (Blueprint): New > Blueprint > selecione o repositório
+services:
+  - type: web
+    name: catalogo-zionne
+    runtime: python
+    plan: starter            # "free" funciona, mas hiberna após 15 min sem acesso
+    region: virginia
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false          # o Render pede o valor na criação
+      - key: DATABASE_URL
+        fromDatabase:
+          name: catalogo-zionne-db
+          property: connectionString
+
+databases:
+  - name: catalogo-zionne-db
+    plan: basic-256mb        # o plano "free" do Render expira em 30 dias
+    region: virginia
+    databaseName: zionne
