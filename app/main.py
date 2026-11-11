@@ -35,6 +35,8 @@ if env_file.exists():
 
 # ------------------------------------------------------------------ banco
 db_url = os.environ.get("DATABASE_URL", "").strip()
+if not db_url and os.environ.get("RENDER"):
+    raise RuntimeError("DATABASE_URL não configurada: no Render use o PostgreSQL (o disco do serviço é apagado a cada deploy).")
 if not db_url:
     (BASE.parent / "data").mkdir(exist_ok=True)
     db_url = f"sqlite:///{(BASE.parent / 'data' / 'zionne.db').as_posix()}"
