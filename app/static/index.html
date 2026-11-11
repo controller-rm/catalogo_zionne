@@ -561,6 +561,37 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .cartItem .kitTag{display:inline-block;font-size:8px;background:#fbece8;color:#a8452f;border-radius:999px;padding:2px 6px;margin-left:5px;font-weight:800;vertical-align:middle}
 .cartItem .comps{display:block;font-size:9px;color:#7b7468;margin-top:3px;line-height:1.5}
 .orderItems tr.comp td{color:#7b7468;font-size:9px;padding-top:2px;padding-bottom:2px;border-bottom:0}
+/* banner de kit (campanha) */
+.kitBanners{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:22px}
+.kitBanners.single{grid-template-columns:1fr}
+.kitBanner{display:grid;grid-template-columns:47% 53%;min-height:260px;border-radius:14px;overflow:hidden;background:#0b4b37;box-shadow:var(--shadow);position:relative}
+.kitBanners.single .kitBanner{min-height:300px;grid-template-columns:42% 58%}
+.kbText{position:relative;z-index:2;padding:26px 22px 22px 28px;color:#fff;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(160deg,#0d553e,#073e2c)}
+.kbText:after{content:"";position:absolute;top:0;right:-48px;width:96px;height:100%;background:inherit;border-radius:0 50% 50% 0/0 50% 50% 0}
+.kbTag{font-weight:800;font-size:23px;line-height:1.1;letter-spacing:-.01em}
+.kbTitle{color:#e3c27e;font-weight:800;font-size:25px;line-height:1.15;margin-top:6px}
+.kbSub{font-size:13px;line-height:1.35;margin-top:6px;color:rgba(255,255,255,.92)}
+.kbPrice{margin-top:14px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.kbPrice b{font-size:32px;font-weight:800}.kbPrice s{font-size:13px;color:rgba(255,255,255,.65)}
+.kbBtn{margin-top:14px;align-self:flex-start;background:linear-gradient(180deg,#e6c98b,#c9a35c);color:#2d230d;border:0;border-radius:10px;padding:12px 20px;font-weight:800;font-size:13px;box-shadow:0 6px 14px rgba(0,0,0,.2);cursor:pointer}
+.kbBtn:hover{filter:brightness(1.05)}.kbBtn:disabled{background:#999;color:#fff;cursor:not-allowed}
+.kbLink{background:none;border:0;color:rgba(255,255,255,.8);font-size:10px;margin-top:9px;align-self:flex-start;cursor:pointer;text-decoration:underline}
+.kbPic{position:relative;background:#e9e3d6}.kbPic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.kbPic .kitBadge{left:auto;right:14px}
+.kitBanner.noImg .kbPic{background:linear-gradient(135deg,#efe8d9,#d9e3cf)}
+.bannerCfg{margin-top:14px;border:1px dashed #d9c9a3;background:#fffaf0;border-radius:10px;padding:12px}
+.bannerCfg .kitBanner{min-height:200px}.bannerCfg .kbTag{font-size:18px}.bannerCfg .kbTitle{font-size:19px}.bannerCfg .kbPrice b{font-size:24px}
+/* imagens por URL / CSV */
+.pfCheck{flex-direction:column;gap:6px}
+.imgOk{display:block;font-size:10px;color:#3d7040;font-weight:800;text-align:center;margin-top:4px}
+.imgErr{color:#a34b44;font-size:11px;font-weight:700;text-align:center;line-height:1.4}
+.imgErrThumb{display:flex;align-items:center;justify-content:center;color:#a34b44;font-weight:800}
+.csvSummary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.csvThumb{width:44px;height:44px;border-radius:7px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.csvThumb img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+.csvTable td{padding:6px 8px}.csvTable tr.erro{background:#fff5f3}.csvTable tr.novo{background:#f5faf1}
+.chg{font-size:10px;color:#7b7468}.chg b{color:#1f5f8b}
+@media(max-width:760px){.kitBanners{grid-template-columns:1fr}.kitBanner,.kitBanners.single .kitBanner{grid-template-columns:1fr;min-height:0}.kbPic{height:190px;order:-1}.kbText:after{display:none}.kbText{padding:20px}}
 @media(max-width:900px){.kitEditor{grid-template-columns:1fr}.simGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.side:nth-child(n+7){display:none}.side:nth-child(6){display:flex!important}}.tag.red{background:#fbe9e7;color:#a34b44}
 </style>
@@ -618,6 +649,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
  </aside>
  <main class="content">
   <section id="home">
+   <section id="kitBanners" class="kitBanners hidden"></section>
    <div id="heroBanner" class="hero"><div class="heroShade"></div><div class="heroText"><h1 id="heroTitle"></h1><p id="heroSubtitle"></p><button id="heroButton" onclick="goto('collections')"></button></div></div>
    <div class="homeEditorialGrid">
     <section id="noticesArea" class="noticeArea editorialPanel">
@@ -686,7 +718,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    </section>
 
    <section id="productsAdmin" class="adminSection">
-    <div class="adminTitle"><div><h1>Produtos</h1><p>Cadastre, altere preço, imagem, descrição e status.</p></div><button class="btn primary" onclick="newProduct()">+ Novo produto</button></div>
+    <div class="adminTitle"><div><h1>Produtos</h1><p>Cadastre, altere preço, imagem, descrição e status — ou atualize tudo por planilha CSV.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" onclick="csvModel()">Baixar modelo CSV</button><button class="btn" onclick="exportProductsCsv()">Exportar CSV</button><label class="btn">Importar CSV<input type="file" accept=".csv,.txt" style="display:none" onchange="importProductsCsv(event)"></label><button class="btn primary" onclick="newProduct()">+ Novo produto</button></div></div>
     <div class="panel"><div class="controls"><input id="adminProductSearch" placeholder="Pesquisar produto..." oninput="renderAdminProducts()"><select id="adminProductCollection" onchange="renderAdminProducts()"><option value="">Todas as coleções</option></select></div>
     <div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Estoque</th><th>Mín.</th><th>Emb.</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminProductsBody"></tbody></table></div></div>
    </section>

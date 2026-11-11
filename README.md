@@ -17,6 +17,14 @@ todos os clientes, e os pedidos chegam centralizados no painel.
 | — | Link de acesso por cliente (`/?doc=...&token=...`) + mensagem pronta para WhatsApp |
 | — | Bloqueio/validade conferidos a cada acesso (cliente bloqueado sai na hora) |
 
+## Produtos por planilha (CSV)
+
+Admin → Produtos → **Baixar modelo CSV** → preencha no Excel → **Importar CSV**.
+Colunas: `Código; Produto; Coleção; Preço; Estoque; Mín; Emb; URL da imagem` (separador `;`, decimal com vírgula).
+- O código identifica o produto: existe → atualiza; não existe → cria. Coleções novas são criadas.
+- Campo em branco mantém o valor atual. Antes de gravar aparece a conferência com as miniaturas das URLs.
+- Imagens só por URL (nada é gravado no banco). Links do Google Drive, OneDrive e Dropbox são convertidos em link direto.
+
 ## Kits promocionais
 
 Admin → **Kits promocionais** → "+ Novo kit":
@@ -24,7 +32,11 @@ Admin → **Kits promocionais** → "+ Novo kit":
 - Desconto em **%** ou **R$**, ou digite direto o **preço final** do kit (o desconto é calculado).
 - O **simulador** mostra preço cheio, desconto, preço do kit, **quantos kits o estoque permite**,
   qual produto limita, faturamento máximo e, para uma meta ("quero montar 50 kits"), quanto falta de cada item.
-- Período da campanha, limite de kits, destaque e opção de mostrar ao cliente quantos kits restam.
+- Condição especial: desconto %, desconto R$, preço final do kit ou preço manual por item.
+  O desconto é rateado entre os itens: cada produto vai para o pedido no seu preço promocional.
+- Período da campanha, limite de kits e opção de mostrar ao cliente quantos kits restam.
+- **★ Destacar na tela principal**: banner de campanha no topo da Home (selo, título, subtítulo, preço,
+  imagem por URL e botão "Quero essa oportunidade", que coloca o kit no pedido e abre o carrinho).
 
 Os kits possíveis usam o campo **Estoque (quantidade)** do produto (em branco = sem controle).
 O estoque não é baixado automaticamente pelos pedidos: atualize a quantidade no produto.

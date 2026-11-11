@@ -308,7 +308,8 @@ def catalog(c=Depends(require_client)):
         calc = kit_calc(k, prods)
         if not calc:
             continue
-        kk = {x: k.get(x) for x in ("id", "name", "description", "image", "startDate", "endDate", "featured", "discountType", "discount")}
+        kk = {x: k.get(x) for x in ("id", "name", "description", "image", "startDate", "endDate", "featured", "discountType", "discount",
+                                     "banner", "bannerTag", "bannerTitle", "bannerSubtitle", "bannerButton", "bannerImage")}
         kk.update(full=calc["full"], price=calc["price"], saving=calc["saving"],
                   maxKits=calc["maxKits"], available=calc["maxKits"] if k.get("showAvailable") else None,
                   soldOut=calc["maxKits"] == 0, components=calc["components"])
@@ -337,29 +338,50 @@ def visible_kit(k):
     t = date.today().isoformat()
     return k.get("active") and (not k.get("startDate") or t >= k["startDate"]) and (not k.get("endDate") or t <= k["endDate"])
 
+def apportion(rows, target):
+    """Distribui o preço do kit entre os itens (preço promocional unitário), acertando centavos."""
+    full = sum(p * q for p, q in rows)
+    factor = target / full if full else 1
+    promos = [round(p * factor, 2) for p, q in rows]
+    diff = round((target - sum(pr * q for pr, (p, q) in zip(promos, rows))) * 100)
+    if diff:
+        for i, (p, q) in enumerate(rows):
+            if q == 1 or diff % q == 0:
+                promos[i] = round(promos[i] + diff / q / 100, 2)
+                break
+    return [max(0.0, x) for x in promos]
+
 def kit_calc(k, prods):
-    """Preço cheio, desconto, preço do kit e quantos kits o estoque permite montar."""
-    comps, full, max_k, limiting = [], 0.0, None, None
+    """Preço cheio, preço promocional por item, preço do kit e quantos kits o estoque permite montar."""
+    comps, rows, max_k, limiting = [], [], None, None
     for it in k.get("items", []):
         p = prods.get(int(it.get("productId") or 0))
         if not p or not p.get("active"):
             return None
         q = max(1, int(it.get("qty") or 1))
-        full += float(p["price"]) * q
+        rows.append((float(p["price"]), q))
         st = stock_of(p)
         if st is not None and (max_k is None or st // q < max_k):
             max_k, limiting = st // q, p["name"]
-        comps.append(dict(productId=p["id"], sku=p["sku"], name=p["name"], image=p.get("image", ""), qty=q, price=float(p["price"])))
+        comps.append(dict(productId=p["id"], sku=p["sku"], name=p["name"], image=p.get("image", ""), qty=q,
+                          price=float(p["price"]), manual=it.get("promoPrice")))
     if not comps:
         return None
-    full = round(full, 2)
-    d = float(k.get("discount") or 0)
-    disc = full * d / 100 if k.get("discountType", "percent") == "percent" else d
-    disc = round(min(max(disc, 0), full), 2)
+    full = round(sum(p * q for p, q in rows), 2)
+    mode, d = k.get("discountType", "percent"), float(k.get("discount") or 0)
+    if mode == "manual":
+        promos = [round(float(c["manual"]), 2) if c["manual"] not in (None, "") else c["price"] for c in comps]
+    else:
+        target = full * (1 - d / 100) if mode == "percent" else (full - d if mode == "value" else d)
+        promos = apportion(rows, round(min(max(target, 0), full), 2))
+    for c, pr in zip(comps, promos):
+        c.pop("manual", None)
+        c["promoPrice"] = pr
+    price = round(sum(c["promoPrice"] * c["qty"] for c in comps), 2)
     limit = int(k["maxKits"]) if str(k.get("maxKits") or "").strip().isdigit() and int(k["maxKits"]) > 0 else None
     if limit is not None and (max_k is None or limit < max_k):
         max_k, limiting = limit, "limite da campanha"
-    return dict(full=full, saving=disc, price=round(full - disc, 2), maxKits=max_k, limiting=limiting, components=comps)
+    return dict(full=full, saving=round(full - price, 2), price=price, maxKits=max_k, limiting=limiting, components=comps)
 
 def normalize_qty(p, q):
     mn, pk = max(1, int(p.get("minQty") or 1)), max(1, int(p.get("packQty") or 1))
@@ -546,15 +568,21 @@ def admin_orders_csv(session: str = ""):
         rs = cx.execute(select(orders).order_by(orders.c.id)).all()
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["Pedido", "Data", "Cliente", "CNPJ/CPF", "Tabela", "Condição", "Status", "Código", "Produto", "Coleção", "Qtd", "Unitário", "Total item", "Total pedido", "Observação", "Composição do kit"])
+    w.writerow(["Pedido", "Data", "Cliente", "CNPJ/CPF", "Tabela", "Condição", "Status", "Código", "Produto", "Coleção", "Qtd", "Unitário", "Total item", "Total pedido", "Observação", "Kit de origem"])
     br = lambda v: f"{v:.2f}".replace(".", ",")
     for r in rs:
         o = order_row(r)
         dt = aware(r.created_at).astimezone(BR_TZ).strftime("%d/%m/%Y %H:%M") if r.created_at else ""
         for it in o["items"]:
+            if it.get("type") == "kit":
+                for c in it.get("components", []):
+                    pr = c.get("promoPrice", c["price"])
+                    w.writerow([o["number"], dt, o["client_name"], o["client_doc"], o["price_table"], o["payment"], o["status"],
+                                c["sku"], c["name"], "", c["qty"] * it["qty"], br(pr), br(pr * c["qty"] * it["qty"]), br(o["total"]), o["obs"] or "",
+                                f'{it["sku"]} {it["name"]} ({it["qty"]} kit(s) • preço cheio un. {br(c["price"])})'])
+                continue
             w.writerow([o["number"], dt, o["client_name"], o["client_doc"], o["price_table"], o["payment"], o["status"],
-                        it["sku"], it["name"], it.get("collection", ""), it["qty"], br(it["price"]), br(it["total"]), br(o["total"]), o["obs"] or "",
-                        " + ".join(f'{c["qty"]}x {c["sku"]} {c["name"]}' for c in it.get("components", []))])
+                        it["sku"], it["name"], it.get("collection", ""), it["qty"], br(it["price"]), br(it["total"]), br(o["total"]), o["obs"] or "", ""])
     data = "﻿" + buf.getvalue()
     return Response(data.encode("utf-8"), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="pedidos_zionne.csv"'})

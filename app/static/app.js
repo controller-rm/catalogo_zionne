@@ -101,7 +101,7 @@ function logoutCatalog() {
   $('loginToken').value = '';
   showLogin();
 }
-function refreshCatalog() { renderHome(); renderFilters(); renderProducts(); renderKits(); updateCart(); renderMyOrders(); }
+function refreshCatalog() { renderHome(); renderFilters(); renderProducts(); renderKits(); renderKitBanners(); updateCart(); renderMyOrders(); }
 function goto(id, btn) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); if (btn) { document.querySelectorAll('.side').forEach(x => x.classList.remove('active')); btn.classList.add('active'); } }
 function syncSearch(v) { $('search').value = v; goto('catalog'); renderProducts(); }
 
@@ -210,14 +210,14 @@ function addCart(id) {
 }
 function prodCartLine(p, qty) { return { key: 'p' + p.id, type: 'product', id: p.id, sku: p.sku, name: p.name, price: p.price, qty }; }
 function kitCartLine(k, qty) { return { key: 'k' + k.id, type: 'kit', kitId: k.id, sku: 'KIT-' + k.id, name: 'Kit ' + k.name, price: k.price, fullPrice: k.full, qty, components: k.components, maxKits: k.maxKits }; }
-function compsText(x) { return (x.components || []).map(c => `${c.qty}x ${c.name}`).join(' • '); }
+function compsText(x) { return (x.components || []).map(c => `${c.qty * x.qty}x ${c.name} a ${BRL(c.promoPrice ?? c.price)} (de ${BRL(c.price)})`).join('\n'); }
 function saveCart() { localStorage.setItem(cartKey(), JSON.stringify(cart)); updateCart(); renderProducts(); renderKits(); }
 function updateCart() {
   renderCollectionPurchaseSummary();
   const q = cart.reduce((a, x) => a + x.qty, 0), t = cart.reduce((a, x) => a + x.qty * x.price, 0);
   ['cartCount', 'sideCart'].forEach(id => { const e = $(id); if (e) e.textContent = q; });
   $('subtotal').textContent = BRL(t); $('grand').textContent = BRL(t);
-  $('cartItems').innerHTML = cart.length ? cart.map(x => `<div class="cartItem"><div><b>${esc(x.name)}</b>${x.type === 'kit' ? '<span class="kitTag">KIT</span>' : ''}<small>${esc(x.sku)} • ${BRL(x.price)} ${x.type === 'kit' ? 'por kit' : 'un.'}</small>${x.type === 'kit' ? `<small class="comps">${esc(compsText(x))}</small>` : ''}<small class="cartItemTotal">Total: ${BRL(x.price * x.qty)}</small></div><div class="qctrl"><button onclick="changeQ('${x.key}',-1)">−</button><span>${x.qty}</span><button onclick="changeQ('${x.key}',1)">+</button></div></div>`).join('') : '<div class="muted small" style="text-align:center;padding:45px 5px">Seu pedido ainda está vazio.</div>';
+  $('cartItems').innerHTML = cart.length ? cart.map(x => `<div class="cartItem"><div><b>${esc(x.name)}</b>${x.type === 'kit' ? '<span class="kitTag">KIT</span>' : ''}<small>${esc(x.sku)} • ${BRL(x.price)} ${x.type === 'kit' ? 'por kit' : 'un.'}</small>${x.type === 'kit' ? `<small class="comps">${esc(compsText(x)).replace(/\n/g, '<br>')}</small>` : ''}<small class="cartItemTotal">Total: ${BRL(x.price * x.qty)}</small></div><div class="qctrl"><button onclick="changeQ('${x.key}',-1)">−</button><span>${x.qty}</span><button onclick="changeQ('${x.key}',1)">+</button></div></div>`).join('') : '<div class="muted small" style="text-align:center;padding:45px 5px">Seu pedido ainda está vazio.</div>';
 }
 function changeQ(key, d) {
   const x = cart.find(i => i.key === key); if (!x) return;
@@ -247,7 +247,7 @@ function printOrderDoc(o) {
 function printPDF() { if (!cart.length) return toast('Adicione produtos ao pedido'); printOrderDoc(draftOrder()); }
 function whatsText(o) {
   const m = ['Olá, Zionne!', 'Segue meu pedido pelo Catálogo Virtual.', '', `Cliente: ${o.client}`, `Pedido: ${o.number}`, `Condição: ${o.payment}`, ''];
-  o.items.forEach(x => { m.push(`${x.qty}x ${x.sku} - ${x.name} - ${BRL(x.qty * x.price)}`); (x.components || []).forEach(c => m.push(`   ↳ ${c.qty * x.qty}x ${c.sku} ${c.name}`)); });
+  o.items.forEach(x => { m.push(`${x.qty}x ${x.sku} - ${x.name} - ${BRL(x.qty * x.price)}`); (x.components || []).forEach(c => m.push(`   ↳ ${c.qty * x.qty}x ${c.sku} ${c.name}${c.promoPrice != null ? ' a ' + BRL(c.promoPrice) : ''}`)); });
   m.push('', `Total: ${BRL(o.total)}`);
   if (o.obs) m.push('', `Obs.: ${o.obs}`);
   return m.join('\n');
@@ -291,7 +291,7 @@ function renderMyOrders() {
 }
 function itemRows(items) {
   return items.map(x => `<tr><td>${esc(x.sku)}</td><td>${esc(x.name)}${x.type === 'kit' && x.fullPrice ? ` <small style="color:#a8452f">(de ${BRL(x.fullPrice)} por ${BRL(x.price)})</small>` : ''}</td><td>${x.qty}</td><td>${BRL(x.price)}</td><td>${BRL(x.price * x.qty)}</td></tr>` +
-    (x.components || []).map(c => `<tr class="comp"><td>↳ ${esc(c.sku)}</td><td>${esc(c.name)} — ${c.qty} por kit</td><td>${c.qty * x.qty}</td><td></td><td></td></tr>`).join('')).join('');
+    (x.components || []).map(c => `<tr class="comp"><td>↳ ${esc(c.sku)}</td><td>${esc(c.name)} — ${c.qty} por kit${c.promoPrice != null ? ` (de ${BRL(c.price)})` : ''}</td><td>${c.qty * x.qty}</td><td>${c.promoPrice != null ? BRL(c.promoPrice) : ''}</td><td>${c.promoPrice != null ? BRL(c.promoPrice * c.qty * x.qty) : ''}</td></tr>`).join('')).join('');
 }
 function orderItemsTable(items) {
   return `<table class="orderItems"><thead><tr><th>Código</th><th>Produto</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${itemRows(items)}</tbody></table>`;
@@ -422,18 +422,18 @@ function renderAdminProducts() {
   const body = $('adminProductsBody'); if (!body) return;
   const q = ($('adminProductSearch')?.value || '').toLowerCase(), cf = $('adminProductCollection')?.value || '';
   const list = data.products.filter(p => (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)) && (!cf || p.collection === cf));
-  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
+  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy" style="cursor:zoom-in" onclick="zoomUrl(this.src)" onerror="this.outerHTML='<div class=&quot;thumb imgErrThumb&quot; title=&quot;Imagem não carregou&quot;>⚠</div>'">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
 }
 let tempImage = '';
 function productForm(p = {}) {
   const opts = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<option ${p.collection === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" oninput="previewPF()"></div><div class="field"><label>Ou enviar foto</label><input id="pfFile" type="file" accept="image/*" onchange="handleUpload(event,'pfPreview',u=>{tempImage=u;$('pfImage').value=u})"></div><div class="imagePreview" id="pfPreview">${p.image ? `<img src="${esc(p.image)}">` : 'Sem imagem'}</div><p class="small muted">A foto é otimizada automaticamente no servidor.</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
+  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" placeholder="https://..." oninput="previewPF()"></div><div class="imagePreview pfCheck" id="pfPreview"></div><p class="small muted">Cole o link da foto. Links de compartilhamento do Google Drive, OneDrive e Dropbox são convertidos automaticamente. Clique na imagem para ampliar.</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
 }
-function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true })); }
-function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p)); }
-function previewPF() { tempImage = $('pfImage').value.trim(); $('pfPreview').innerHTML = tempImage ? `<img src="${esc(tempImage)}">` : 'Sem imagem'; }
+function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true })); imgCheck('pfPreview', ''); }
+function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p)); imgCheck('pfPreview', p.image); }
+let pfTimer; function previewPF() { clearTimeout(pfTimer); pfTimer = setTimeout(() => { tempImage = normImg($('pfImage').value); imgCheck('pfPreview', tempImage); }, 350); }
 function saveProduct(id) {
-  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: $('pfImage').value.trim(), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0) };
+  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: normImg($('pfImage').value), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0) };
   if (!obj.sku || !obj.name) return toast('Informe código e nome');
   if (data.products.some(x => x.sku === obj.sku && x.id !== id)) return toast('Já existe um produto com este código');
   if (id) Object.assign(data.products.find(x => x.id === id), obj); else { obj.id = nextId(data.products); data.products.push(obj); }
@@ -625,27 +625,36 @@ function importConfig(e) {
 /* ================================================================ KITS PROMOCIONAIS */
 /* cálculo igual ao do servidor: preço cheio, desconto, preço do kit e kits possíveis pelo estoque */
 function stockOf(p) { if (p.stockQty === '' || p.stockQty == null) return null; const n = parseInt(p.stockQty); return isNaN(n) ? null : Math.max(0, n); }
+function apportion(rows, target) {
+  const full = rows.reduce((a, r) => a + r.price * r.qty, 0), f = full ? target / full : 1;
+  const promos = rows.map(r => Math.round(r.price * f * 100) / 100);
+  const diff = Math.round((target - promos.reduce((a, p, i) => a + p * rows[i].qty, 0)) * 100);
+  if (diff) { const i = rows.findIndex(r => r.qty === 1 || diff % r.qty === 0); if (i >= 0) promos[i] = Math.round((promos[i] + diff / rows[i].qty / 100) * 100) / 100; }
+  return promos.map(x => Math.max(0, x));
+}
 function kitCalc(k, prods) {
   const map = new Map((prods || data.products).map(p => [p.id, p]));
-  let full = 0, maxK = null, limiting = null; const rows = [], missing = [];
+  let maxK = null, limiting = null; const rows = [], missing = [];
   (k.items || []).forEach(it => {
     const p = map.get(Number(it.productId)), q = Math.max(1, parseInt(it.qty) || 1);
     if (!p) { missing.push(it.productId); return; }
     const st = stockOf(p), perItem = st == null ? null : Math.floor(st / q);
-    full += Number(p.price) * q;
     if (perItem != null && (maxK == null || perItem < maxK)) { maxK = perItem; limiting = p.name; }
-    rows.push({ p, qty: q, stock: st, perItem, subtotal: Number(p.price) * q, inactive: !p.active });
+    rows.push({ p, qty: q, price: Number(p.price), manual: it.promoPrice, stock: st, perItem, inactive: !p.active });
   });
-  full = Math.round(full * 100) / 100;
-  const d = Number(k.discount) || 0;
-  let disc = (k.discountType || 'percent') === 'percent' ? full * d / 100 : d;
-  disc = Math.round(Math.min(Math.max(disc, 0), full) * 100) / 100;
+  const full = Math.round(rows.reduce((a, r) => a + r.price * r.qty, 0) * 100) / 100;
+  const mode = k.discountType || 'percent', d = Number(k.discount) || 0;
+  let promos;
+  if (mode === 'manual') promos = rows.map(r => r.manual === '' || r.manual == null ? r.price : Math.round(Number(r.manual) * 100) / 100);
+  else { const t = mode === 'percent' ? full * (1 - d / 100) : mode === 'value' ? full - d : d; promos = apportion(rows, Math.round(Math.min(Math.max(t, 0), full) * 100) / 100); }
+  rows.forEach((r, i) => { r.promo = promos[i]; r.subtotal = r.price * r.qty; });
+  const price = Math.round(rows.reduce((a, r) => a + r.promo * r.qty, 0) * 100) / 100, saving = Math.round((full - price) * 100) / 100;
   const limit = parseInt(k.maxKits) > 0 ? parseInt(k.maxKits) : null;
   if (limit != null && (maxK == null || limit < maxK)) { maxK = limit; limiting = 'limite da campanha'; }
-  return { full, saving: disc, price: Math.round((full - disc) * 100) / 100, pct: full ? disc / full * 100 : 0, maxKits: maxK, limiting, rows, missing };
+  return { full, saving, price, pct: full ? saving / full * 100 : 0, maxKits: maxK, limiting, rows, missing };
 }
 function isKitVisible(k) { const t = todayYMD(); return k.active && (!k.startDate || t >= k.startDate) && (!k.endDate || t <= k.endDate); }
-function kitBadge(k) { return k.saving > 0 ? (k.discountType === 'value' ? `− ${BRL(k.saving)}` : `− ${Math.round(Number(k.discount) || 0)}%`) : ''; }
+function kitBadge(k) { const pct = k.full ? k.saving / k.full * 100 : 0; return pct >= 1 ? `− ${Math.round(pct)}%` : ''; }
 
 /* lista de kits para o catálogo (cliente vem pronto do servidor; pré-visualização do admin calcula aqui) */
 function clientKits() {
@@ -653,7 +662,7 @@ function clientKits() {
   return (data.kits || []).filter(isKitVisible).map(k => {
     const c = kitCalc(k);
     if (!c.rows.length || c.missing.length || c.rows.some(r => r.inactive)) return null;
-    return { ...k, full: c.full, price: c.price, saving: c.saving, maxKits: c.maxKits, available: k.showAvailable ? c.maxKits : null, soldOut: c.maxKits === 0, components: c.rows.map(r => ({ productId: r.p.id, sku: r.p.sku, name: r.p.name, image: r.p.image, qty: r.qty, price: r.p.price })) };
+    return { ...k, full: c.full, price: c.price, saving: c.saving, maxKits: c.maxKits, available: k.showAvailable ? c.maxKits : null, soldOut: c.maxKits === 0, components: c.rows.map(r => ({ productId: r.p.id, sku: r.p.sku, name: r.p.name, image: r.p.image, qty: r.qty, price: r.p.price, promoPrice: r.promo })) };
   }).filter(Boolean).sort((a, b) => (Number(b.featured) - Number(a.featured)) || ((a.order || 0) - (b.order || 0)));
 }
 function kitPicture(k) {
@@ -682,7 +691,7 @@ function addKit(id) {
 }
 function viewKit(id) {
   const k = clientKits().find(x => x.id === id); if (!k) return;
-  showModal('Kit ' + k.name, `${k.description ? `<p class="small muted">${esc(k.description)}</p>` : ''}<table class="orderItems"><thead><tr><th></th><th>Produto</th><th>Qtd. no kit</th><th>Unitário</th><th>Subtotal</th></tr></thead><tbody>${k.components.map(c => `<tr><td>${c.image ? `<img class="thumb" src="${esc(c.image)}">` : ''}</td><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.sku)}</span></td><td>${c.qty}</td><td>${BRL(c.price)}</td><td>${BRL(c.price * c.qty)}</td></tr>`).join('')}</tbody></table><div class="total" style="margin-top:10px"><span>Valor dos itens separados</span><b>${BRL(k.full)}</b></div>${k.saving > 0 ? `<div class="total"><span>Desconto do kit</span><b style="color:#a8452f">− ${BRL(k.saving)}</b></div>` : ''}<div class="total"><span>Preço do kit</span><b class="grand">${BRL(k.price)}</b></div>${k.soldOut ? '' : `<div class="btnRow"><button class="btn primary" onclick="closeModal();addKit(${k.id})">Adicionar 1 kit ao pedido</button></div>`}`);
+  showModal('Kit ' + k.name, `${k.description ? `<p class="small muted">${esc(k.description)}</p>` : ''}<table class="orderItems"><thead><tr><th></th><th>Produto</th><th>Qtd. no kit</th><th>Unitário</th><th>No kit</th><th>Subtotal</th></tr></thead><tbody>${k.components.map(c => `<tr><td>${c.image ? `<img class="thumb" src="${esc(c.image)}">` : ''}</td><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.sku)}</span></td><td>${c.qty}</td><td><span class="kitFull">${BRL(c.price)}</span></td><td><b>${BRL(c.promoPrice ?? c.price)}</b></td><td>${BRL((c.promoPrice ?? c.price) * c.qty)}</td></tr>`).join('')}</tbody></table><div class="total" style="margin-top:10px"><span>Valor dos itens separados</span><b>${BRL(k.full)}</b></div>${k.saving > 0 ? `<div class="total"><span>Desconto do kit</span><b style="color:#a8452f">− ${BRL(k.saving)}</b></div>` : ''}<div class="total"><span>Preço do kit</span><b class="grand">${BRL(k.price)}</b></div>${k.soldOut ? '' : `<div class="btnRow"><button class="btn primary" onclick="closeModal();addKit(${k.id})">Adicionar 1 kit ao pedido</button></div>`}`);
 }
 
 /* ---------------------------------------------------------------- kits (admin) */
@@ -692,61 +701,74 @@ function renderAdminKits() {
   body.innerHTML = kits.map(k => {
     const c = kitCalc(k), vis = isKitVisible(k), broken = c.missing.length || c.rows.some(r => r.inactive);
     const st = !k.active ? ['off', 'Inativo'] : broken ? ['red', 'Produto inativo'] : !vis ? ['warn', 'Fora do período'] : c.maxKits === 0 ? ['red', 'Sem estoque'] : ['on', 'Exibindo'];
-    return `<tr><td>${k.image ? `<img class="listThumbWide" src="${esc(k.image)}">` : `<div class="listThumbWide" style="display:flex;align-items:center;justify-content:center;color:#a8452f">✦</div>`}</td><td><b>${esc(k.name)}</b><br><span class="muted">${esc((k.description || '').slice(0, 50))}</span></td><td>${c.rows.reduce((a, r) => a + r.qty, 0)} un. / ${c.rows.length} prod.</td><td>${BRL(c.full)}</td><td>${c.saving > 0 ? (k.discountType === 'value' ? BRL(c.saving) : Math.round(k.discount) + '% (' + BRL(c.saving) + ')') : '—'}</td><td><b>${BRL(c.price)}</b></td><td>${c.maxKits == null ? '<span class="muted">sem limite</span>' : `<b>${c.maxKits}</b><br><span class="muted">${esc(c.limiting || '')}</span>`}</td><td>${formatPeriod(k.startDate, k.endDate)}</td><td><span class="tag ${st[0]}">${st[1]}</span></td><td class="actionsCell"><button onclick="editKit(${k.id})">Editar / Simular</button><button onclick="duplicateKit(${k.id})">Duplicar</button><button onclick="toggleKit(${k.id})">${k.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteKit(${k.id})">Excluir</button></td></tr>`;
+    return `<tr><td>${k.image ? `<img class="listThumbWide" src="${esc(k.image)}">` : `<div class="listThumbWide" style="display:flex;align-items:center;justify-content:center;color:#a8452f">✦</div>`}</td><td><b>${esc(k.name)}</b><br><span class="muted">${esc((k.description || '').slice(0, 50))}</span></td><td>${c.rows.reduce((a, r) => a + r.qty, 0)} un. / ${c.rows.length} prod.</td><td>${BRL(c.full)}</td><td>${c.saving > 0 ? c.pct.toFixed(1).replace('.', ',') + '% (' + BRL(c.saving) + ')' : '—'}${k.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}</td><td><b>${BRL(c.price)}</b></td><td>${c.maxKits == null ? '<span class="muted">sem limite</span>' : `<b>${c.maxKits}</b><br><span class="muted">${esc(c.limiting || '')}</span>`}</td><td>${formatPeriod(k.startDate, k.endDate)}</td><td><span class="tag ${st[0]}">${st[1]}</span></td><td class="actionsCell"><button onclick="editKit(${k.id})">Editar / Simular</button><button onclick="duplicateKit(${k.id})">Duplicar</button><button onclick="toggleKit(${k.id})">${k.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteKit(${k.id})">Excluir</button></td></tr>`;
   }).join('') || '<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Nenhum kit cadastrado. Clique em "+ Novo kit" para montar o primeiro.</td></tr>';
 }
 
 let kitDraft = null;
+const KIT_MODES = { percent: 'Desconto (%)', value: 'Desconto (R$)', target: 'Preço final do kit (R$)', manual: 'Preço manual por item' };
 function kitEditorHtml(k) {
   const prodOpts = data.products.filter(p => p.active).sort((a, b) => (a.collection || '').localeCompare(b.collection || '') || a.name.localeCompare(b.name))
     .map(p => `<option value="${p.id}">${esc(p.sku)} — ${esc(p.name)} (${esc(p.collection)}) • ${BRL(p.price)}</option>`).join('');
+  const mode = k.discountType || 'percent';
   return `<div class="kitEditor"><div>
-    <div class="field"><label>Nome do kit</label><input id="kfName" value="${esc(k.name || '')}" placeholder="Ex.: Kit Café da Manhã Blue Ribbon" oninput="kitDraft.name=this.value"></div>
+    <div class="field"><label>Nome do kit</label><input id="kfName" value="${esc(k.name || '')}" placeholder="Ex.: Kit Mesa Posta" oninput="kitDraft.name=this.value"></div>
     <div class="field"><label>Descrição (aparece para o cliente)</label><textarea id="kfDesc" rows="2" oninput="kitDraft.description=this.value">${esc(k.description || '')}</textarea></div>
-    <div class="grid2"><div class="field"><label>Tipo de desconto</label><select id="kfDiscType" onchange="kitDraft.discountType=this.value;updateKitSim()"><option value="percent" ${k.discountType !== 'value' ? 'selected' : ''}>Percentual (%)</option><option value="value" ${k.discountType === 'value' ? 'selected' : ''}>Valor fixo (R$)</option></select></div><div class="field"><label>Desconto no kit</label><input id="kfDisc" type="number" min="0" step="0.01" value="${k.discount ?? 0}" oninput="kitDraft.discount=this.value;updateKitSim()"></div></div>
-    <div class="field"><label>Ou defina o preço final do kit (R$)</label><input id="kfTarget" type="number" min="0" step="0.01" placeholder="Calcula o desconto automaticamente" onchange="setKitTargetPrice(this.value)"></div>
+    <div class="grid2"><div class="field"><label>Condição especial</label><select id="kfDiscType" onchange="setKitMode(this.value)">${Object.entries(KIT_MODES).map(([v, l]) => `<option value="${v}" ${mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div><div class="field" id="kfDiscWrap"><label id="kfDiscLabel">${KIT_MODES[mode]}</label><input id="kfDisc" type="number" min="0" step="0.01" value="${k.discount ?? 0}" oninput="kitDraft.discount=this.value;updateKitSim()"></div></div>
+    <p class="small muted" style="margin-top:-4px">O desconto é distribuído entre os itens: cada produto entra no pedido com seu <b>preço promocional</b>. Em "Preço manual por item" você digita o preço de cada um na tabela.</p>
     <div class="grid2"><div class="field"><label>Início da campanha</label><input id="kfStart" type="date" value="${k.startDate || ''}" onchange="kitDraft.startDate=this.value"></div><div class="field"><label>Fim da campanha</label><input id="kfEnd" type="date" value="${k.endDate || ''}" onchange="kitDraft.endDate=this.value"></div></div>
     <div class="grid2"><div class="field"><label>Limite de kits na campanha</label><input id="kfMax" type="number" min="0" step="1" value="${k.maxKits || ''}" placeholder="Sem limite" oninput="kitDraft.maxKits=this.value;updateKitSim()"></div><div class="field"><label>Ordem</label><input id="kfOrder" type="number" value="${k.order || 1}" oninput="kitDraft.order=Number(this.value)||1"></div></div>
     <label class="checkRow"><input type="checkbox" ${k.active !== false ? 'checked' : ''} onchange="kitDraft.active=this.checked"> Kit ativo (visível no catálogo)</label><br>
-    <label class="checkRow"><input type="checkbox" ${k.featured ? 'checked' : ''} onchange="kitDraft.featured=this.checked"> Destaque (aparece primeiro)</label><br>
+    <label class="checkRow"><input type="checkbox" ${k.featured ? 'checked' : ''} onchange="kitDraft.featured=this.checked"> Primeiro da lista de kits</label><br>
     <label class="checkRow"><input type="checkbox" ${k.showAvailable ? 'checked' : ''} onchange="kitDraft.showAvailable=this.checked"> Mostrar ao cliente quantos kits restam</label>
-    <div class="field" style="margin-top:12px"><label>Imagem do kit (opcional — sem imagem, mostra as fotos dos produtos)</label><input id="kfImageUrl" value="${esc(k.image || '')}" placeholder="https://..." oninput="kitDraft.image=this.value.trim();$('kfPreview').innerHTML=kitDraft.image?'<img src=&quot;'+kitDraft.image+'&quot;>':'Sem imagem'"><input type="file" accept="image/*" style="margin-top:6px" onchange="handleUpload(event,'kfPreview',u=>{kitDraft.image=u;$('kfImageUrl').value=u})"></div>
-    <div id="kfPreview" class="adminImagePreviewLarge" style="height:130px">${k.image ? `<img src="${esc(k.image)}">` : 'Sem imagem'}</div>
+    <div class="field" style="margin-top:12px"><label>URL da imagem do kit (opcional — sem imagem, usa as fotos dos produtos)</label><input id="kfImageUrl" value="${esc(k.image || '')}" placeholder="https://..." oninput="kitDraft.image=normImg(this.value);imgCheck('kfPreview',kitDraft.image)"></div>
+    <div id="kfPreview" class="adminImagePreviewLarge" style="height:120px"></div>
+    <div class="bannerCfg"><label class="checkRow" style="font-weight:800"><input id="kfBanner" type="checkbox" ${k.banner ? 'checked' : ''} onchange="kitDraft.banner=this.checked;$('kfBannerFields').classList.toggle('hidden',!this.checked);renderBannerPreview()"> ★ Destacar na tela principal (banner de campanha)</label>
+     <div id="kfBannerFields" class="${k.banner ? '' : 'hidden'}">
+      <div class="grid2"><div class="field"><label>Selo / campanha</label><input value="${esc(k.bannerTag || '')}" placeholder="Black Friday 2026" oninput="kitDraft.bannerTag=this.value;renderBannerPreview()"></div><div class="field"><label>Título</label><input value="${esc(k.bannerTitle || '')}" placeholder="Kit ${esc(k.name || '')}" oninput="kitDraft.bannerTitle=this.value;renderBannerPreview()"></div></div>
+      <div class="field"><label>Subtítulo (em branco = composição do kit)</label><input value="${esc(k.bannerSubtitle || '')}" placeholder="12 pratos rasos + 12 pratos de sobremesa" oninput="kitDraft.bannerSubtitle=this.value;renderBannerPreview()"></div>
+      <div class="grid2"><div class="field"><label>Texto do botão</label><input value="${esc(k.bannerButton || '')}" placeholder="Quero essa oportunidade" oninput="kitDraft.bannerButton=this.value;renderBannerPreview()"></div><div class="field"><label>URL da imagem do banner</label><input value="${esc(k.bannerImage || '')}" placeholder="https://... (em branco = imagem do kit)" oninput="kitDraft.bannerImage=normImg(this.value);renderBannerPreview()"></div></div>
+      <div id="kfBannerPreview"></div>
+     </div></div>
   </div><div>
     <h3 style="font-family:Georgia,serif;font-weight:500;margin:0 0 8px">Produtos do kit</h3>
     <div class="kitPicker"><select id="kfProd"><option value="">Selecione um produto para incluir…</option>${prodOpts}</select><input id="kfProdQty" type="number" min="1" value="1" title="Quantidade por kit"><button class="btn primary" onclick="addKitItem()">+ Incluir</button></div>
-    <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Qtd./kit</th><th>Subtotal</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
+    <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Promo un.</th><th>Qtd./kit</th><th>Subtotal promo</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
     <div id="kfSim"></div>
     <div class="simTarget"><div class="row"><b>Simular campanha:</b> quero montar <input id="kfSimQty" type="number" min="1" value="${k.simQty || 10}" oninput="updateKitSim()"> kits</div><div id="kfSimTarget"></div></div>
   </div></div>
   <div id="kfError" class="error hidden"></div>
   <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveKit()">Salvar kit</button></div>`;
 }
-function openKitEditor(k, title) { kitDraft = JSON.parse(JSON.stringify(k)); kitDraft.items = kitDraft.items || []; showModal(title, kitEditorHtml(kitDraft), true); updateKitSim(); }
-function newKit() { openKitEditor({ active: true, featured: false, showAvailable: false, discountType: 'percent', discount: 10, order: (data.kits || []).length + 1, items: [] }, 'Novo kit promocional'); }
+function openKitEditor(k, title) { kitDraft = JSON.parse(JSON.stringify(k)); kitDraft.items = kitDraft.items || []; showModal(title, kitEditorHtml(kitDraft), true); imgCheck('kfPreview', kitDraft.image); updateKitSim(); }
+function newKit() { openKitEditor({ active: true, featured: false, showAvailable: false, discountType: 'percent', discount: 10, order: (data.kits || []).length + 1, items: [], bannerButton: 'Quero essa oportunidade' }, 'Novo kit promocional'); }
 function editKit(id) { openKitEditor(data.kits.find(x => x.id === id), 'Editar kit promocional'); }
-function duplicateKit(id) { const k = JSON.parse(JSON.stringify(data.kits.find(x => x.id === id))); delete k.id; k.name = k.name + ' (cópia)'; k.active = false; openKitEditor(k, 'Novo kit (cópia)'); }
+function duplicateKit(id) { const k = JSON.parse(JSON.stringify(data.kits.find(x => x.id === id))); delete k.id; k.name = k.name + ' (cópia)'; k.active = false; k.banner = false; openKitEditor(k, 'Novo kit (cópia)'); }
+function setKitMode(m) {
+  const c = kitCalc(kitDraft);
+  // ao trocar o modo, preserva o preço atual do kit
+  if (m === 'manual') c.rows.forEach(r => { const it = kitDraft.items.find(i => Number(i.productId) === r.p.id); it.promoPrice = r.promo; });
+  kitDraft.discount = m === 'percent' ? Math.round(c.pct * 100) / 100 : m === 'value' ? c.saving : m === 'target' ? c.price : 0;
+  kitDraft.discountType = m;
+  $('kfDiscLabel').textContent = KIT_MODES[m]; $('kfDisc').value = kitDraft.discount; $('kfDiscWrap').style.visibility = m === 'manual' ? 'hidden' : 'visible';
+  updateKitSim();
+}
 function addKitItem() {
   const pid = Number($('kfProd').value), q = Math.max(1, parseInt($('kfProdQty').value) || 1);
   if (!pid) return toast('Selecione um produto');
   const e = kitDraft.items.find(i => Number(i.productId) === pid);
-  e ? e.qty = Number(e.qty) + q : kitDraft.items.push({ productId: pid, qty: q });
+  e ? e.qty = Number(e.qty) + q : kitDraft.items.push({ productId: pid, qty: q, promoPrice: data.products.find(p => p.id === pid)?.price });
   $('kfProd').value = ''; $('kfProdQty').value = 1; updateKitSim();
 }
 function setKitItemQty(pid, v) { const e = kitDraft.items.find(i => Number(i.productId) === pid); if (e) { e.qty = Math.max(1, parseInt(v) || 1); updateKitSim(); } }
+function setKitItemPromo(pid, v) { const e = kitDraft.items.find(i => Number(i.productId) === pid); if (e) { e.promoPrice = Math.max(0, Number(v) || 0); updateKitSim(); } }
 function removeKitItem(pid) { kitDraft.items = kitDraft.items.filter(i => Number(i.productId) !== pid); updateKitSim(); }
-function setKitTargetPrice(v) {
-  const c = kitCalc({ ...kitDraft, discount: 0 }), target = Number(v);
-  if (!c.full || !(target > 0)) return;
-  if (target > c.full) return toast('O preço final não pode ser maior que o valor cheio (' + BRL(c.full) + ')');
-  kitDraft.discountType = 'value'; kitDraft.discount = Math.round((c.full - target) * 100) / 100;
-  $('kfDiscType').value = 'value'; $('kfDisc').value = kitDraft.discount; $('kfTarget').value = ''; updateKitSim();
-}
 function updateKitSim() {
   if (!kitDraft) return;
-  const c = kitCalc(kitDraft);
-  $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.subtotal)}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
-    : '<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
+  const c = kitCalc(kitDraft), manual = kitDraft.discountType === 'manual';
+  if ($('kfDiscWrap')) $('kfDiscWrap').style.visibility = manual ? 'hidden' : 'visible';
+  $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td>${manual ? `<input type="number" min="0" step="0.01" value="${r.promo}" style="width:78px" onchange="setKitItemPromo(${r.p.id},this.value)">` : `<b>${BRL(r.promo)}</b>`}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.promo * r.qty)}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
+    : '<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
   const n = c.maxKits;
   $('kfSim').innerHTML = `<div class="simBox"><h4>Simulação do kit</h4><div class="simGrid">
     <div class="simStat"><small>Preço cheio (itens)</small><strong>${BRL(c.full)}</strong></div>
@@ -757,18 +779,27 @@ function updateKitSim() {
     <div class="simStat"><small>Faturamento máximo</small><strong>${n == null ? '—' : BRL(n * c.price)}</strong></div>
     <div class="simStat"><small>Valor cheio desses kits</small><strong>${n == null ? '—' : BRL(n * c.full)}</strong></div>
     <div class="simStat"><small>Desconto total concedido</small><strong>${n == null ? '—' : BRL(n * c.saving)}</strong></div>
-  </div><div class="simNote">${!c.rows.length ? 'Inclua produtos para simular.' : n == null ? 'Nenhum produto do kit tem estoque informado, então não há limite de kits. Informe o "Estoque (quantidade)" nos produtos para calcular.' : n === 0 ? `<b>Não é possível montar nenhum kit</b> — limitado por: ${esc(c.limiting)}.` : `Item que limita o kit: <b>${esc(c.limiting)}</b>. ${c.rows.filter(r => r.perItem != null).length < c.rows.length ? 'Produtos sem estoque informado não limitam o cálculo.' : ''}`}</div></div>`;
+  </div><div class="simNote">${!c.rows.length ? 'Inclua produtos para simular.' : n == null ? 'Nenhum produto do kit tem estoque informado, então não há limite de kits. Informe o "Estoque (quantidade)" nos produtos para calcular.' : n === 0 ? `<b>Não é possível montar nenhum kit</b> — limitado por: ${esc(c.limiting)}.` : `Item que limita o kit: <b>${esc(c.limiting)}</b>. ${c.rows.filter(r => r.perItem != null).length < c.rows.length ? 'Produtos sem estoque informado não limitam o cálculo.' : ''}`}${kitDraft.discountType === 'target' && c.rows.length && Math.abs(c.price - Number(kitDraft.discount)) > 0.001 ? `<br>Arredondamento dos preços unitários: o kit fica em ${BRL(c.price)}.` : ''}</div></div>`;
   const want = Math.max(1, parseInt($('kfSimQty')?.value) || 1);
   $('kfSimTarget').innerHTML = c.rows.length ? `<table class="kitComp" style="margin-top:8px"><thead><tr><th>Produto</th><th>Necessário</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${c.rows.map(r => { const need = r.qty * want, falta = r.stock == null ? 0 : need - r.stock; return `<tr><td>${esc(r.p.name)}</td><td>${need.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '—' : r.stock.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '<span class="muted">sem controle</span>' : falta > 0 ? `<span class="short">faltam ${falta.toLocaleString('pt-BR')}</span>` : `<span class="ok">ok (sobram ${(-falta).toLocaleString('pt-BR')})</span>`}</td></tr>`; }).join('')}</tbody></table>
     <div class="total" style="margin-top:8px;font-size:12px"><span>${want} kits × ${BRL(c.price)}</span><b class="grand">${BRL(want * c.price)}</b></div><div class="small muted">Valor cheio: ${BRL(want * c.full)} • desconto total: ${BRL(want * c.saving)}${n != null && want > n ? ` • <span class="short">acima do possível (${n})</span>` : ''}</div>` : '';
+  renderBannerPreview();
+}
+function renderBannerPreview() {
+  const el = $('kfBannerPreview'); if (!el || !kitDraft) return;
+  if (!kitDraft.banner) { el.innerHTML = ''; return; }
+  const c = kitCalc(kitDraft);
+  const k = { ...kitDraft, full: c.full, price: c.price, saving: c.saving, components: c.rows.map(r => ({ name: r.p.name, qty: r.qty, image: r.p.image })) };
+  el.innerHTML = `<div class="small muted" style="margin:6px 0">Pré-visualização do banner:</div>${kitBannerHtml(k, true)}`;
 }
 function saveKit() {
   const k = kitDraft, err = $('kfError');
   k.name = $('kfName').value.trim(); k.description = $('kfDesc').value.trim(); k.discount = Number($('kfDisc').value) || 0; k.discountType = $('kfDiscType').value;
-  k.startDate = $('kfStart').value; k.endDate = $('kfEnd').value; k.maxKits = $('kfMax').value ? Math.max(0, parseInt($('kfMax').value) || 0) : ''; k.order = Number($('kfOrder').value) || 1; k.image = $('kfImageUrl').value.trim();
+  k.startDate = $('kfStart').value; k.endDate = $('kfEnd').value; k.maxKits = $('kfMax').value ? Math.max(0, parseInt($('kfMax').value) || 0) : ''; k.order = Number($('kfOrder').value) || 1; k.image = normImg($('kfImageUrl').value);
   k.simQty = Math.max(1, parseInt($('kfSimQty').value) || 1);
   const c = kitCalc(k);
-  const msg = !k.name ? 'Informe o nome do kit.' : !k.items.length ? 'Inclua ao menos um produto no kit.' : (k.discountType === 'percent' && k.discount > 100) ? 'O desconto percentual não pode passar de 100%.' : (k.discountType === 'value' && k.discount > c.full) ? 'O desconto não pode ser maior que o valor cheio do kit.' : (k.startDate && k.endDate && k.endDate < k.startDate) ? 'A data final é anterior à inicial.' : '';
+  c.rows.forEach(r => { const it = k.items.find(i => Number(i.productId) === r.p.id); if (it) it.promoPrice = r.promo; });
+  const msg = !k.name ? 'Informe o nome do kit.' : !k.items.length ? 'Inclua ao menos um produto no kit.' : (k.discountType === 'percent' && k.discount > 100) ? 'O desconto percentual não pode passar de 100%.' : (k.discountType === 'value' && k.discount > c.full) ? 'O desconto não pode ser maior que o valor cheio do kit.' : (k.discountType === 'target' && k.discount > c.full) ? 'O preço final não pode ser maior que o valor cheio (' + BRL(c.full) + ').' : (k.startDate && k.endDate && k.endDate < k.startDate) ? 'A data final é anterior à inicial.' : '';
   if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
   data.kits = data.kits || [];
   if (k.id) Object.assign(data.kits.find(x => x.id === k.id), k); else { k.id = nextId(data.kits); data.kits.push(k); }
@@ -776,6 +807,159 @@ function saveKit() {
 }
 function toggleKit(id) { const k = data.kits.find(x => x.id === id); k.active = !k.active; saveData(k.active ? 'Kit ativado' : 'Kit desativado'); }
 function deleteKit(id) { if (!confirm('Excluir este kit? Pedidos já feitos com ele continuam no histórico.')) return; data.kits = data.kits.filter(x => x.id !== id); saveData('Kit excluído'); }
+
+/* ---------------------------------------------------------------- banner de kit na Home */
+function kitBannerImage(k) { return k.bannerImage || k.image || (k.components || []).find(c => c.image)?.image || ''; }
+function kitBannerSubtitle(k) { return k.bannerSubtitle || (k.components || []).map(c => `${c.qty}× ${c.name}`).join(' + '); }
+function kitBannerHtml(k, preview) {
+  const img = kitBannerImage(k);
+  return `<article class="kitBanner ${img ? '' : 'noImg'}"><div class="kbText">${k.bannerTag ? `<div class="kbTag">${esc(k.bannerTag)}</div>` : ''}<div class="kbTitle">${esc(k.bannerTitle || ('Kit ' + (k.name || '')))}</div><div class="kbSub">${esc(kitBannerSubtitle(k))}</div><div class="kbPrice">${k.saving > 0 ? `<s>${BRL(k.full)}</s>` : ''}<b>${BRL(k.price)}</b></div><button class="kbBtn" ${k.soldOut ? 'disabled' : ''} onclick="${preview ? 'void 0' : `quickKit(${k.id})`}">${k.soldOut ? 'Esgotado' : esc(k.bannerButton || 'Quero essa oportunidade')}</button><button class="kbLink" onclick="${preview ? 'void 0' : `viewKit(${k.id})`}">Ver o que vem no kit →</button></div><div class="kbPic">${img ? `<img src="${esc(img)}" alt="${esc(k.name)}" loading="lazy">` : ''}${kitBadge(k) ? `<span class="kitBadge">${kitBadge(k)}</span>` : ''}</div></article>`;
+}
+function renderKitBanners() {
+  const el = $('kitBanners'); if (!el) return;
+  const list = clientKits().filter(k => k.banner);
+  el.classList.toggle('hidden', !list.length);
+  el.classList.toggle('single', list.length === 1);
+  el.innerHTML = list.map(k => kitBannerHtml(k)).join('');
+}
+function quickKit(id) {
+  const k = clientKits().find(x => x.id === id); if (!k || k.soldOut) return;
+  const e = cart.find(x => x.key === 'k' + id);
+  if (k.maxKits != null && (e?.qty || 0) + 1 > k.maxKits) return toast(`Disponível no máximo ${k.maxKits} kit(s).`);
+  e ? e.qty += 1 : cart.push(kitCartLine(k, 1));
+  saveCart(); openCart(); toast(`Kit "${k.name}" adicionado com os preços promocionais`);
+}
+
+/* ---------------------------------------------------------------- imagens por URL */
+/* converte links de compartilhamento (Google Drive, Dropbox, OneDrive) em link direto da imagem */
+function normImg(u) {
+  u = (u || '').trim(); if (!u) return '';
+  let m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/);
+  if (m) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+  if (/dropbox\.com\//.test(u)) { try { const x = new URL(u); x.searchParams.delete('dl'); x.searchParams.set('raw', '1'); return x.toString(); } catch { return u; } }
+  if (/(1drv\.ms|onedrive\.live\.com)\//.test(u) && !/api\.onedrive\.com/.test(u)) {
+    const b64 = btoa(unescape(encodeURIComponent(u))).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+    return `https://api.onedrive.com/v1.0/shares/u!${b64}/root/content`;
+  }
+  return u;
+}
+/* mostra a imagem e confirma se carregou */
+function imgCheck(boxId, url) {
+  const box = $(boxId); if (!box) return;
+  if (!url) { box.innerHTML = '<span class="muted small">Sem imagem</span>'; return; }
+  box.innerHTML = '<span class="muted small">Carregando imagem…</span>';
+  const im = new Image();
+  im.onload = () => { box.innerHTML = `<img src="${esc(url)}" style="cursor:zoom-in" onclick="zoomUrl('${esc(url)}')"><span class="imgOk">✓ ${im.naturalWidth}×${im.naturalHeight}px</span>`; };
+  im.onerror = () => { box.innerHTML = '<span class="imgErr">⚠ Não foi possível carregar esta URL.<br>Confira se o link é público e aponta para a imagem.</span>'; };
+  im.src = url;
+}
+function zoomUrl(url) { if (!url) return; $('imageZoomTarget').src = url; $('imageZoomModal').classList.add('on'); document.body.style.overflow = 'hidden'; }
+
+/* ---------------------------------------------------------------- produtos: CSV */
+const CSV_COLS = ['codigo', 'produto', 'colecao', 'preco', 'estoque', 'min', 'emb', 'url_imagem'];
+const CSV_HEAD = ['Código', 'Produto', 'Coleção', 'Preço', 'Estoque', 'Mín', 'Emb', 'URL da imagem'];
+function csvCell(v) { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function downloadText(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+function brNum(v, dec = 2) { return v === '' || v == null ? '' : Number(v).toFixed(dec).replace('.', ','); }
+function csvModel() {
+  const ex = [['0000193', 'Xícara Café Horticool', 'Horticool Green', '79,90', '120', '6', '6', 'https://seusite.com.br/fotos/0000193.jpg'], ['0000195', 'Prato Raso Horticool', 'Horticool Green', '119,90', '40', '1', '1', '']];
+  downloadText('modelo_produtos_zionne.csv', [CSV_HEAD.join(';'), ...ex.map(r => r.map(csvCell).join(';'))].join('\r\n'));
+}
+function exportProductsCsv() {
+  const rows = data.products.map(p => [p.sku, p.name, p.collection, brNum(p.price), p.stockQty ?? '', p.minQty || 1, p.packQty || 1, p.image && !p.image.startsWith('/img/') ? p.image : '']);
+  downloadText('produtos_zionne_' + todayYMD() + '.csv', [CSV_HEAD.join(';'), ...rows.map(r => r.map(csvCell).join(';'))].join('\r\n'));
+}
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/)[0] || '', delim = [';', '\t', ','].sort((a, b) => first.split(b).length - first.split(a).length)[0];
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
+}
+function headKey(h) {
+  h = h.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  if (/^(codigo|cod|sku|referencia|ref)$/.test(h)) return 'codigo';
+  if (/^(produto|nome|nomedoproduto|descricaodoproduto)$/.test(h)) return 'produto';
+  if (/^colecao/.test(h)) return 'colecao';
+  if (/^(preco|valor|precounitario|precoun)/.test(h)) return 'preco';
+  if (/^(estoque|saldo|qtdestoque|quantidade)/.test(h)) return 'estoque';
+  if (/^(min|minimo|qtdmin|quantidademinima)/.test(h)) return 'min';
+  if (/^(emb|embalagem|multiplo)/.test(h)) return 'emb';
+  if (/(url|imagem|foto|image)/.test(h)) return 'url_imagem';
+  if (/^descricao/.test(h)) return 'descricao';
+  return null;
+}
+function parseMoney(v) { v = String(v || '').replace(/[R$\s]/g, ''); if (!v) return null; if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.'); const n = Number(v); return isNaN(n) ? NaN : n; }
+function parseIntBR(v) { v = String(v || '').trim().replace(/\./g, '').replace(',', '.'); if (!v) return null; const n = Math.floor(Number(v)); return isNaN(n) ? NaN : n; }
+let csvPlan = null;
+function importProductsCsv(e) {
+  const f = e.target.files?.[0]; if (!f) return; e.target.value = '';
+  const r = new FileReader();
+  r.onload = () => {
+    let text = r.result;
+    if (text.includes('�')) { const r2 = new FileReader(); r2.onload = () => buildCsvPlan(r2.result); r2.readAsText(f, 'windows-1252'); return; }
+    buildCsvPlan(text);
+  };
+  r.readAsText(f, 'utf-8');
+}
+function buildCsvPlan(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return toast('CSV vazio ou sem linhas de produto.');
+  const keys = rows[0].map(headKey);
+  if (!keys.includes('codigo')) return alert('Não encontrei a coluna "Código" no cabeçalho.\nUse o botão "Baixar modelo" para ver o formato esperado.');
+  const bySku = new Map(data.products.map(p => [String(p.sku).trim(), p]));
+  const colNames = new Set(data.collections.map(c => c.name.toLowerCase()));
+  const plan = [], seen = new Set(), newCols = new Set();
+  rows.slice(1).forEach((r, i) => {
+    const o = {}; keys.forEach((k, j) => { if (k) o[k] = (r[j] ?? '').trim(); });
+    const sku = o.codigo, line = i + 2, cur = bySku.get(sku), errs = [];
+    if (!sku) return;
+    if (seen.has(sku)) errs.push('código repetido no arquivo'); seen.add(sku);
+    const price = parseMoney(o.preco), stock = parseIntBR(o.estoque), min = parseIntBR(o.min), emb = parseIntBR(o.emb);
+    if (Number.isNaN(price)) errs.push('preço inválido'); if (Number.isNaN(stock)) errs.push('estoque inválido'); if (Number.isNaN(min)) errs.push('mín. inválido'); if (Number.isNaN(emb)) errs.push('emb. inválida');
+    if (!cur && !o.produto) errs.push('produto novo sem nome'); if (!cur && price == null) errs.push('produto novo sem preço'); if (!cur && !o.colecao) errs.push('produto novo sem coleção');
+    const next = {
+      sku, name: o.produto || cur?.name, collection: o.colecao || cur?.collection, price: price ?? cur?.price,
+      stockQty: 'estoque' in o ? (stock == null ? (o.estoque === '' && cur ? cur.stockQty ?? '' : '') : stock) : (cur?.stockQty ?? ''),
+      minQty: min ?? cur?.minQty ?? 1, packQty: emb ?? cur?.packQty ?? 1,
+      image: o.url_imagem ? normImg(o.url_imagem) : (cur?.image || ''), description: o.descricao || cur?.description || 'Porcelana de alto padrão, acabamento refinado e design exclusivo.'
+    };
+    if (next.collection && !colNames.has(next.collection.toLowerCase())) newCols.add(next.collection);
+    const changes = cur ? ['name', 'collection', 'price', 'stockQty', 'minQty', 'packQty', 'image', 'description'].filter(k => String(cur[k] ?? '') !== String(next[k] ?? '')) : [];
+    plan.push({ line, cur, next, errs, status: errs.length ? 'erro' : !cur ? 'novo' : changes.length ? 'alterado' : 'igual', changes });
+  });
+  csvPlan = { plan, newCols: [...newCols], missing: data.products.filter(p => !seen.has(String(p.sku).trim()) && p.active) };
+  showCsvPreview();
+}
+function showCsvPreview() {
+  const { plan, newCols, missing } = csvPlan, cnt = s => plan.filter(x => x.status === s).length;
+  const fmtChg = (x, k, f = v => v) => x.cur && x.changes.includes(k) ? `<span class="chg">${esc(f(x.cur[k]) ?? '—')} → <b>${esc(f(x.next[k]) ?? '—')}</b></span>` : esc(f(x.next[k]) ?? '');
+  showModal('Importar produtos — conferência', `<div class="csvSummary"><span class="tag on">${cnt('novo')} novos</span><span class="tag blue">${cnt('alterado')} alterados</span><span class="tag off">${cnt('igual')} sem alteração</span>${cnt('erro') ? `<span class="tag red">${cnt('erro')} com erro (serão ignorados)</span>` : ''}${newCols.length ? `<span class="tag warn">Coleções novas: ${esc(newCols.join(', '))}</span>` : ''}</div>
+  <p class="small muted">Confira as miniaturas: elas são carregadas direto da URL informada. ⚠ indica imagem que não abriu. Campos em branco no CSV mantêm o valor atual do produto.</p>
+  <div class="tableWrap" style="max-height:48vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Linha</th><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Estoque</th><th>Mín</th><th>Emb</th><th>Situação</th></tr></thead><tbody>${plan.map(x => `<tr class="${x.status}"><td>${x.line}</td><td>${x.next.image ? `<div class="csvThumb"><img src="${esc(x.next.image)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.parentNode.innerHTML='<span class=imgErr title=&quot;Imagem não carregou&quot;>⚠</span>'"></div>` : '<span class="muted">—</span>'}</td><td>${esc(x.next.sku)}</td><td>${fmtChg(x, 'name')}</td><td>${fmtChg(x, 'collection')}</td><td>${fmtChg(x, 'price', v => v == null ? null : BRL(v))}</td><td>${fmtChg(x, 'stockQty', v => v === '' ? '—' : v)}</td><td>${fmtChg(x, 'minQty')}</td><td>${fmtChg(x, 'packQty')}</td><td>${x.status === 'erro' ? `<span class="tag red">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : x.status === 'alterado' ? `<span class="tag blue">Alterado</span>${x.changes.includes('image') ? ' <span class="small muted">(imagem)</span>' : ''}` : '<span class="tag off">Igual</span>'}</td></tr>`).join('')}</tbody></table></div>
+  ${missing.length ? `<label class="checkRow" style="margin-top:10px"><input id="csvInactivate" type="checkbox"> Marcar como <b>Fora de linha</b> os ${missing.length} produto(s) ativos que não estão no arquivo</label>` : ''}
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="applyCsvPlan()" ${cnt('novo') + cnt('alterado') + (missing.length ? 1 : 0) ? '' : 'disabled'}>Importar ${cnt('novo') + cnt('alterado')} produto(s)</button></div>`, true);
+}
+function applyCsvPlan() {
+  const { plan, newCols, missing } = csvPlan;
+  newCols.forEach(name => data.collections.push({ id: nextId(data.collections), name, description: '', featured: false, active: true, order: data.collections.length + 1, color1: '#e8e3d9', color2: '#8d806f', image: '' }));
+  let nNew = 0, nUpd = 0;
+  plan.forEach(x => {
+    if (x.status === 'novo') { data.products.push({ id: nextId(data.products), active: true, stock: 'Disponível', ...x.next }); nNew++; }
+    else if (x.status === 'alterado') { Object.assign(x.cur, x.next); nUpd++; }
+  });
+  if ($('csvInactivate')?.checked) missing.forEach(p => p.active = false);
+  csvPlan = null; closeModal();
+  saveData(`Importação concluída: ${nNew} novo(s), ${nUpd} alterado(s)${newCols.length ? `, ${newCols.length} coleção(ões) criada(s)` : ''}`);
+}
 
 /* ---------------------------------------------------------------- util */
 function showModal(title, body, wide) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; document.querySelector('#modal .modalCard').classList.toggle('wide', !!wide); $('modal').classList.add('on'); }
