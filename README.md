@@ -50,6 +50,25 @@ Colunas: `Kit; Descrição; Condição; Valor; Código produto; Qtd por kit; Pre
 - Condição: `%`, `R$`, `Preço final` ou `Manual` (em Manual, use a coluna "Preço promo item").
 - Kit com nome já existente é atualizado e a composição é substituída pela do arquivo.
 
+## Inteligência Comercial (somente administrador)
+
+Dados financeiros do produto (nunca enviados ao cliente): **custo líquido** e os percentuais
+ICMS, PIS, COFINS, IRPJ, CS, Comissão, Custo Op., Lucro alvo e **Lucro mínimo**.
+Padrão geral em Configurações → Parâmetros financeiros; o produto pode sobrepor (cadastro ou CSV).
+
+Colunas no CSV de produtos: `Preco.Com.Liq; Perc.Icms.Ven; Perc.Pis.Ven; Perc.Cofins.Ven; Perc.Irpj.Ven; Perc.Cs.Ven; Perc.Comis.Ven; Perc.Custo.Op.Ven; Perc.Lucro.Ven; Perc.Lucro.Min`.
+
+Fórmulas:
+- Preço ideal = Custo ÷ (1 − (ICMS+PIS+COFINS+IRPJ+CS+Comissão+Custo Op.+Lucro) ÷ 100)
+- Lucro líquido = Preço final × (1 − (impostos+comissão+custo op.) ÷ 100) − Custo
+- Margem líquida = Lucro líquido ÷ Preço final  (semáforo: verde ≥ lucro alvo, amarelo ≥ lucro mínimo, vermelho abaixo)
+- Custo da bonificação = Custo ÷ (1 − (ICMS+PIS+COFINS) ÷ 100)
+- Desconto máximo = 1 − Preço mínimo ÷ Preço, com Preço mínimo = Custo ÷ (1 − (deduções + lucro mínimo) ÷ 100)
+
+Onde aparece: cadastro do produto (preço ideal/mínimo), lista de produtos (margem), editor de kit
+(resumo financeiro do kit) e aba **Inteligência Comercial** (pedido, kit ou simulação livre, com
+bonificação, comparativo pagar × bonificar, recomendações, análises salvas, CSV e PDF).
+
 ## Endereços
 
 - Catálogo (clientes): `https://SEU-ENDERECO/`

@@ -317,13 +317,16 @@ def catalog(c=Depends(require_client)):
     return {
         "client": public_client(c),
         "kits": kits,
-        "products": [{k: v for k, v in p.items() if k != "stockQty"} for p in ct["products"] if p.get("active")],
+        "products": [{k: v for k, v in p.items() if k not in ADMIN_ONLY} for p in ct["products"] if p.get("active")],
         "collections": [x for x in ct["collections"] if x.get("active")],
         "home": ct["home"],
         "notices": [n for n in ct.get("notices", []) if visible_notice(n)],
         "inspirations": [x for x in ct.get("inspirations", []) if x.get("active")],
         "settings": {k: s.get(k) for k in ("whats", "email", "institutional", "payments")},
     }
+
+# campos que nunca vão para o cliente (estoque e dados financeiros)
+ADMIN_ONLY = {"stockQty", "cost", "fin"}
 
 def stock_of(p):
     v = p.get("stockQty")
@@ -536,6 +539,22 @@ def backup(_=Depends(require_admin)):
     payload = dict(kv_get("content"))
     payload["clients"] = kv_get("clients", [])
     return JSONResponse(payload, headers={"Content-Disposition": 'attachment; filename="zionne_catalogo_backup.json"'})
+
+@app.get("/api/admin/analyses")
+def get_analyses(_=Depends(require_admin)):
+    return kv_get("analyses", {})
+
+@app.put("/api/admin/analyses/{key}")
+async def put_analysis(key: str, req: Request, _=Depends(require_admin)):
+    b = await req.json()
+    a = kv_get("analyses", {})
+    if b is None or b == {}:
+        a.pop(key, None)
+    else:
+        b["savedAt"] = now().isoformat()
+        a[key[:80]] = b
+    kv_set("analyses", a)
+    return {"ok": True}
 
 @app.get("/api/admin/orders")
 def admin_orders(_=Depends(require_admin)):

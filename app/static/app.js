@@ -350,7 +350,7 @@ function previewCatalog() {
   loadCart(); showApp(me); myOrders = []; renderMyOrders();
 }
 function refreshAdmin() { data.kits = data.kits || []; renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
-function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); }
+function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); if (id === 'intelAdmin') intelInit(); }
 
 let saving = Promise.resolve();
 function saveData(msg) {
@@ -400,7 +400,7 @@ function renderAdminOrders() {
   if (sel && sel.options.length <= 1) sel.innerHTML = '<option value="">Todos os status</option>' + orderStatus.map(s => `<option>${esc(s)}</option>`).join('');
   const q = ($('adminOrderSearch')?.value || '').toLowerCase(), st = sel?.value || '';
   const list = adminOrders.filter(o => (!st || o.status === st) && (!q || (o.number || '').toLowerCase().includes(q) || (o.client_name || '').toLowerCase().includes(q) || (o.client_doc || '').includes(q)));
-  $('adminOrdersBody').innerHTML = list.length ? list.map(o => `<tr><td><b>${esc(o.number)}</b></td><td>${new Date(o.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td><td><b>${esc(o.client_name)}</b><br><span class="muted">${esc(o.client_doc || '')}</span></td><td>${o.items.reduce((a, x) => a + x.qty, 0)}</td><td><b>${BRL(o.total)}</b></td><td>${esc(o.payment)}</td><td><select class="statusSel" onchange="setOrderStatus(${o.id},this.value)">${orderStatus.map(s => `<option ${s === o.status ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></td><td class="actionsCell"><button onclick="viewAdminOrder(${o.id})">Ver</button><button onclick="printAdminOrder(${o.id})">PDF</button><button class="red" onclick="deleteAdminOrder(${o.id})">Excluir</button></td></tr>`).join('') : '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Nenhum pedido encontrado.</td></tr>';
+  $('adminOrdersBody').innerHTML = list.length ? list.map(o => `<tr><td><b>${esc(o.number)}</b></td><td>${new Date(o.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td><td><b>${esc(o.client_name)}</b><br><span class="muted">${esc(o.client_doc || '')}</span></td><td>${o.items.reduce((a, x) => a + x.qty, 0)}</td><td><b>${BRL(o.total)}</b></td><td>${esc(o.payment)}</td><td><select class="statusSel" onchange="setOrderStatus(${o.id},this.value)">${orderStatus.map(s => `<option ${s === o.status ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></td><td class="actionsCell"><button onclick="viewAdminOrder(${o.id})">Ver</button><button onclick="openIntelTab();setTimeout(()=>intelFromOrder(${o.id}),50)">Analisar</button><button onclick="printAdminOrder(${o.id})">PDF</button><button class="red" onclick="deleteAdminOrder(${o.id})">Excluir</button></td></tr>`).join('') : '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Nenhum pedido encontrado.</td></tr>';
 }
 async function setOrderStatus(id, status) {
   try { await api('/api/admin/orders/' + id, { method: 'PATCH', admin: true, body: { status } }); const o = adminOrders.find(x => x.id === id); if (o) o.status = status; renderDashboard(); toast('Status atualizado: ' + status); }
@@ -419,22 +419,45 @@ async function deleteAdminOrder(id) {
 function exportOrdersCsv() { window.open('/api/admin/orders.csv?session=' + encodeURIComponent(localStorage.getItem(ASESS) || ''), '_blank'); }
 
 /* ---------------------------------------------------------------- produtos */
+function prodMarginCell(p) {
+  const f = finOf(p); if (!f.hasCost) return '<span class="muted" title="Sem custo cadastrado">—</span>';
+  const m = marginAt(f, p.price), st = finStatus(m, f.lucro, f.lucroMin);
+  return `<span title="Custo ${BRL(f.cost)} • Preço ideal ${BRL(f.ideal)}">${dotF(st)}${pctF(m)}${p.price < f.ideal - 0.005 ? `<br><span class="small" style="color:#a56a00">ideal ${BRL(f.ideal)}</span>` : ''}</span>`;
+}
 function renderAdminProducts() {
   const body = $('adminProductsBody'); if (!body) return;
   const q = ($('adminProductSearch')?.value || '').toLowerCase(), cf = $('adminProductCollection')?.value || '';
   const list = data.products.filter(p => (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)) && (!cf || p.collection === cf));
-  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy" style="cursor:zoom-in" onclick="zoomUrl(this.src)" onerror="this.outerHTML='<div class=&quot;thumb imgErrThumb&quot; title=&quot;Imagem não carregou&quot;>⚠</div>'">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
+  body.innerHTML = list.map(p => `<tr><td>${p.image ? `<img class="thumb" src="${esc(p.image)}" loading="lazy" style="cursor:zoom-in" onclick="zoomUrl(this.src)" onerror="this.outerHTML='<div class=&quot;thumb imgErrThumb&quot; title=&quot;Imagem não carregou&quot;>⚠</div>'">` : `<div class="thumb"></div>`}</td><td>${esc(p.sku)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.collection)}</td><td>${BRL(p.price)}</td><td>${prodMarginCell(p)}</td><td>${p.stockQty === '' || p.stockQty == null ? '<span class="muted">—</span>' : Number(p.stockQty).toLocaleString('pt-BR')}</td><td>${p.minQty || 1}</td><td>${p.packQty || 1}</td><td><span class="tag ${p.active ? 'on' : 'off'}">${p.active ? 'Ativo' : 'Fora de linha'}</span></td><td class="actionsCell"><button onclick="editProduct(${p.id})">Editar</button><button onclick="toggleProduct(${p.id})">${p.active ? 'Fora de linha' : 'Ativar'}</button><button class="red" onclick="deleteProduct(${p.id})">Excluir</button></td></tr>`).join('');
 }
 let tempImage = '';
 function productForm(p = {}) {
   const opts = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<option ${p.collection === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" placeholder="https://..." oninput="previewPF()"></div><div class="imagePreview pfCheck" id="pfPreview"></div><p class="small muted">Cole o link da foto. Links de compartilhamento do Google Drive, OneDrive e Dropbox são convertidos automaticamente. Clique na imagem para ampliar.</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
+  return `<div class="grid2"><div><div class="field"><label>Código</label><input id="pfSku" value="${esc(p.sku || '')}"></div><div class="field"><label>Nome do produto</label><input id="pfName" value="${esc(p.name || '')}"></div><div class="field"><label>Coleção</label><select id="pfCollection">${opts}</select></div><div class="grid2"><div class="field"><label>Preço</label><input id="pfPrice" type="number" step="0.01" value="${p.price ?? ''}"></div><div class="field"><label>Situação</label><select id="pfStock">${['Disponível', 'Baixo estoque', 'Sob encomenda', 'Esgotado'].map(s => `<option ${p.stock === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div><div class="field"><label>Estoque (quantidade) — usado no cálculo de kits</label><input id="pfStockQty" type="number" min="0" step="1" value="${p.stockQty ?? ''}" placeholder="Em branco = sem controle"></div><div class="field"><label>Descrição</label><textarea id="pfDesc" rows="3">${esc(p.description || '')}</textarea></div><div class="grid2"><div class="field"><label>Quantidade mínima</label><input id="pfMinQty" type="number" min="1" value="${p.minQty || 1}"></div><div class="field"><label>Embalagem / múltiplo</label><input id="pfPackQty" type="number" min="1" value="${p.packQty || 1}"></div></div><p class="small muted">Ex.: mínimo 6 e embalagem 6 → cliente compra 6, 12, 18...</p><label class="checkRow"><input id="pfActive" type="checkbox" ${p.active !== false ? 'checked' : ''}> Produto ativo</label></div><div><div class="field"><label>URL da imagem</label><input id="pfImage" value="${esc(p.image || '')}" placeholder="https://..." oninput="previewPF()"></div><div class="imagePreview pfCheck" id="pfPreview"></div><p class="small muted">Cole o link da foto. Links de compartilhamento do Google Drive, OneDrive e Dropbox são convertidos automaticamente. Clique na imagem para ampliar.</p></div></div>${productFinForm(p)}<div style="text-align:right;margin-top:14px"><button class="btn primary" onclick="saveProduct(${p.id || 0})">Salvar produto</button></div>`;
 }
-function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true })); imgCheck('pfPreview', ''); }
-function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p)); imgCheck('pfPreview', p.image); }
+function newProduct() { tempImage = ''; showModal('Novo produto', productForm({ active: true }), true); imgCheck('pfPreview', ''); pfFinCalc(); $('pfPrice').addEventListener('input', pfFinCalc); }
+function editProduct(id) { const p = data.products.find(x => x.id === id); tempImage = p.image || ''; showModal('Editar produto', productForm(p), true); imgCheck('pfPreview', p.image); pfFinCalc(); $('pfPrice').addEventListener('input', pfFinCalc); }
 let pfTimer; function previewPF() { clearTimeout(pfTimer); pfTimer = setTimeout(() => { tempImage = normImg($('pfImage').value); imgCheck('pfPreview', tempImage); }, 350); }
+function productFinForm(p) {
+  const d = finDefaults(), o = p.fin || {};
+  return `<div class="finBox"><div class="finHead"><b>💼 Financeiro</b><span class="lockTag">🔒 somente administrador — não aparece para o cliente</span></div>
+  <div class="finGrid"><div class="field"><label>Custo líquido (Preco.Com.Liq)</label><input id="pfCost" type="number" step="0.01" min="0" value="${p.cost ?? ''}" oninput="pfFinCalc()"></div>
+  ${FIN_PCT.map(([k, l]) => `<div class="field"><label>${l} %</label><input id="pf_${k}" type="number" step="0.01" value="${o[k] ?? ''}" placeholder="${String(d[k]).replace('.', ',')} (padrão)" oninput="pfFinCalc()"></div>`).join('')}</div>
+  <div id="pfFinOut" class="finOut"></div></div>`;
+}
+function pfFinRead() {
+  const fin = {}; FIN_PCT.forEach(([k]) => { const v = $('pf_' + k)?.value; if (v !== '' && v != null) fin[k] = Number(v); });
+  return { cost: $('pfCost').value === '' ? '' : Number($('pfCost').value), fin };
+}
+function pfFinCalc() {
+  const out = $('pfFinOut'); if (!out) return;
+  const r = pfFinRead(), f = finOf(r), price = Number($('pfPrice').value || 0);
+  if (!f.hasCost) { out.innerHTML = '<span class="muted small">Informe o custo líquido para calcular o preço ideal e a margem.</span>'; return; }
+  const m = marginAt(f, price), st = finStatus(m, f.lucro, f.lucroMin);
+  out.innerHTML = `<div><small>Deduções s/ venda</small><b>${String(+f.ded.toFixed(2)).replace('.', ',')}%</b></div><div><small>Preço ideal (lucro ${String(f.lucro).replace('.', ',')}%)</small><b>${BRL(f.ideal)}</b></div><div><small>Preço mínimo (lucro ${String(f.lucroMin).replace('.', ',')}%)</small><b>${BRL(f.minPrice)}</b></div><div><small>Margem líquida no preço atual</small><b class="${st}">${dotF(st)}${pctF(m)}</b></div><div><small>Desconto máximo</small><b>${price && f.minPrice ? pctF(Math.max(0, 1 - f.minPrice / price)) : '—'}</b></div><button class="btn" type="button" onclick="$('pfPrice').value=${(Math.round(f.ideal * 100) / 100).toFixed(2)};pfFinCalc()">Usar preço ideal</button>`;
+}
 function saveProduct(id) {
-  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: normImg($('pfImage').value), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0) };
+  const obj = { sku: $('pfSku').value.trim(), name: $('pfName').value.trim(), collection: $('pfCollection').value, price: Number($('pfPrice').value || 0), stock: $('pfStock').value, description: $('pfDesc').value.trim(), minQty: Math.max(1, Number($('pfMinQty').value || 1)), packQty: Math.max(1, Number($('pfPackQty').value || 1)), active: $('pfActive').checked, image: normImg($('pfImage').value), stockQty: $('pfStockQty').value === '' ? '' : Math.max(0, parseInt($('pfStockQty').value) || 0), ...pfFinRead() };
   if (!obj.sku || !obj.name) return toast('Informe código e nome');
   if (data.products.some(x => x.sku === obj.sku && x.id !== id)) return toast('Já existe um produto com este código');
   if (id) Object.assign(data.products.find(x => x.id === id), obj); else { obj.id = nextId(data.products); data.products.push(obj); }
@@ -624,11 +647,13 @@ function renderSettings() {
   const s = data.settings;
   $('setWhats').value = s.whats || ''; $('setEmail').value = s.email || ''; $('setInstitutional').value = (s.institutional || '').replace(/\\n/g, '\n');
   $('setPayments').value = (s.payments || []).join('\n'); $('setAdminUser').value = adminUser; $('setAdminPassword').value = '';
+  const d = finDefaults(); $('finDefaults').innerHTML = [...FIN_PCT, ['bonusPct', 'Bonificação padrão'], ['generalDisc', 'Desconto geral padrão']].map(([k, l]) => `<div class="field"><label>${l} %</label><input id="fd_${k}" type="number" step="0.01" value="${d[k]}"></div>`).join('');
 }
 async function saveSettings() {
   const s = data.settings;
   s.whats = $('setWhats').value.replace(/\D/g, ''); s.email = $('setEmail').value.trim(); s.institutional = $('setInstitutional').value;
   s.payments = $('setPayments').value.split('\n').map(x => x.trim()).filter(Boolean);
+  s.fin = {}; [...FIN_PCT, ['bonusPct'], ['generalDisc']].forEach(([k]) => s.fin[k] = numOr($('fd_' + k).value, FIN_DEF[k]));
   const user = $('setAdminUser').value.trim(), pw = $('setAdminPassword').value;
   if (user !== adminUser || pw) {
     try { const r = await api('/api/admin/credentials', { method: 'POST', admin: true, body: { user, password: pw } }); adminUser = r.user; $('setAdminPassword').value = ''; }
@@ -768,8 +793,9 @@ function kitEditorHtml(k) {
   </div><div>
     <h3 style="font-family:Georgia,serif;font-weight:500;margin:0 0 8px">Produtos do kit</h3>
     <div class="kitPicker"><select id="kfProd"><option value="">Selecione um produto para incluir…</option>${prodOpts}</select><input id="kfProdQty" type="number" min="1" value="1" title="Quantidade por kit"><button class="btn primary" onclick="addKitItem()">+ Incluir</button></div>
-    <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Promo un.</th><th>Qtd./kit</th><th>Subtotal promo</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
+    <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Promo un.</th><th>Qtd./kit</th><th>Subtotal promo</th><th>Margem líq.</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
     <div id="kfSim"></div>
+    <div id="kfFin"></div>
     <div class="simTarget"><div class="row"><b>Simular campanha:</b> quero montar <input id="kfSimQty" type="number" min="1" value="${k.simQty || 10}" oninput="updateKitSim()"> kits</div><div id="kfSimTarget"></div></div>
   </div></div>
   <div id="kfError" class="error hidden"></div>
@@ -802,8 +828,8 @@ function updateKitSim() {
   if (!kitDraft) return;
   const c = kitCalc(kitDraft), manual = kitDraft.discountType === 'manual';
   if ($('kfDiscWrap')) $('kfDiscWrap').style.visibility = manual ? 'hidden' : 'visible';
-  $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td>${manual ? `<input type="number" min="0" step="0.01" value="${r.promo}" style="width:78px" onchange="setKitItemPromo(${r.p.id},this.value)">` : `<b>${BRL(r.promo)}</b>`}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.promo * r.qty)}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
-    : '<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
+  $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td>${manual ? `<input type="number" min="0" step="0.01" value="${r.promo}" style="width:78px" onchange="setKitItemPromo(${r.p.id},this.value)">` : `<b>${BRL(r.promo)}</b>`}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.promo * r.qty)}</td><td>${(() => { const f = finOf(r.p); if (!f.hasCost) return '<span class="muted" title="Sem custo cadastrado">—</span>'; const m = marginAt(f, r.promo), st = finStatus(m, f.lucro, f.lucroMin); return dotF(st) + pctF(m); })()}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
+    : '<tr><td colspan="9" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
   const n = c.maxKits;
   $('kfSim').innerHTML = `<div class="simBox"><h4>Simulação do kit</h4><div class="simGrid">
     <div class="simStat"><small>Preço cheio (itens)</small><strong>${BRL(c.full)}</strong></div>
@@ -818,7 +844,31 @@ function updateKitSim() {
   const want = Math.max(1, parseInt($('kfSimQty')?.value) || 1);
   $('kfSimTarget').innerHTML = c.rows.length ? `<table class="kitComp" style="margin-top:8px"><thead><tr><th>Produto</th><th>Necessário</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${c.rows.map(r => { const need = r.qty * want, falta = r.stock == null ? 0 : need - r.stock; return `<tr><td>${esc(r.p.name)}</td><td>${need.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '—' : r.stock.toLocaleString('pt-BR')}</td><td>${r.stock == null ? '<span class="muted">sem controle</span>' : falta > 0 ? `<span class="short">faltam ${falta.toLocaleString('pt-BR')}</span>` : `<span class="ok">ok (sobram ${(-falta).toLocaleString('pt-BR')})</span>`}</td></tr>`; }).join('')}</tbody></table>
     <div class="total" style="margin-top:8px;font-size:12px"><span>${want} kits × ${BRL(c.price)}</span><b class="grand">${BRL(want * c.price)}</b></div><div class="small muted">Valor cheio: ${BRL(want * c.full)} • desconto total: ${BRL(want * c.saving)}${n != null && want > n ? ` • <span class="short">acima do possível (${n})</span>` : ''}</div>` : '';
+  $('kfFin').innerHTML = kitFinHtml(c, n ?? Math.max(1, parseInt($('kfSimQty')?.value) || 1), n == null);
   renderBannerPreview();
+}
+function kitDeal(c, nKits) { return { items: c.rows.map(r => ({ productId: r.p.id, price: r.price, qty: r.qty * (nKits || 1), disc: r.price ? (1 - r.promo / r.price) * 100 : 0 })), gd: 0, bp: 0, bonus: {} }; }
+function kitFinHtml(c, nCampaign, isTarget) {
+  if (!c.rows.length) return '';
+  const d = dealCalc(kitDeal(c, 1));
+  if (d.missingCost === c.rows.length) return `<div class="kfinBox"><div class="kfinHead"><b>💼 Resumo financeiro do kit</b><span class="lockTag">🔒 só administrador</span></div><p class="small muted">Cadastre o custo líquido dos produtos (no produto ou pelo CSV com Preco.Com.Liq) para ver custo, margem, preço mínimo e desconto máximo do kit.</p></div>`;
+  const pMin = d.C / (1 - d.avgDed - d.min / 100), dMax = c.full ? 1 - pMin / c.full : NaN, st = finStatus(d.mLiq, d.alvo, d.min);
+  const msg = st === 'g' ? `o kit está saudável. Dá para baixar o preço até <b>${BRL(pMin)}</b> (${pctF(Math.max(0, 1 - pMin / c.price))} abaixo do atual) mantendo o lucro mínimo de ${String(+d.min.toFixed(1)).replace('.', ',')}%.`
+    : st === 'y' ? `margem abaixo do lucro alvo (${String(+d.alvo.toFixed(1)).replace('.', ',')}%), mas acima do mínimo. Preço mínimo do kit: <b>${BRL(pMin)}</b>.`
+    : `<b>margem abaixo do lucro mínimo</b>. Para atingir ${String(+d.min.toFixed(1)).replace('.', ',')}%, o kit precisa custar ao menos <b>${BRL(pMin)}</b> (desconto máximo de ${pctF(dMax)} sobre o preço cheio).`;
+  return `<div class="kfinBox"><div class="kfinHead"><b>💼 Resumo financeiro do kit</b><span class="lockTag">🔒 só administrador</span></div>
+  <div class="kfinGrid">
+   <div><small>Custo do kit</small><b>${BRL(d.C)}</b></div>
+   <div><small>Impostos + comissão + custo op.</small><b>${BRL(d.ded)}</b></div>
+   <div><small>Lucro líquido por kit</small><b>${BRL(d.lucro)}</b></div>
+   <div><small>Margem líquida</small><b class="${st}">${dotF(st)}${pctF(d.mLiq)}</b></div>
+   <div><small>Margem líquida sem desconto</small><b>${pctF(d.mLiqGross)}</b></div>
+   <div><small>Margem bruta (preço − custo)</small><b>${pctF(d.mBruta)}</b></div>
+   <div><small>Lucro ${isTarget ? 'da meta' : 'da campanha'} (${nCampaign} kits)</small><b>${BRL(d.lucro * nCampaign)}</b></div>
+   <div><small>Preço mínimo do kit</small><b class="y">${BRL(pMin)}</b></div>
+   <div><small>Desconto máximo s/ preço cheio</small><b class="y">${pctF(dMax)}</b></div>
+  </div>${thermoHtml(d.mLiq, d.alvo, d.min)}
+  <div class="kfinTip">◈ <b>Inteligência comercial:</b> ${msg}${d.missingCost ? ` <br><span style="color:#f3d79a">⚠ ${d.missingCost} produto(s) do kit sem custo cadastrado — o resultado está incompleto.</span>` : ''}</div></div>`;
 }
 function renderBannerPreview() {
   const el = $('kfBannerPreview'); if (!el || !kitDraft) return;
@@ -892,16 +942,16 @@ function zoomUrl(url) { if (!url) return; $('imageZoomTarget').src = url; $('ima
 
 /* ---------------------------------------------------------------- produtos: CSV */
 const CSV_COLS = ['codigo', 'produto', 'colecao', 'preco', 'estoque', 'min', 'emb', 'url_imagem'];
-const CSV_HEAD = ['Código', 'Produto', 'Coleção', 'Preço', 'Estoque', 'Mín', 'Emb', 'URL da imagem'];
+const CSV_HEAD = ['Código', 'Produto', 'Coleção', 'Preço', 'Estoque', 'Mín', 'Emb', 'URL da imagem', 'Preco.Com.Liq', 'Perc.Icms.Ven', 'Perc.Pis.Ven', 'Perc.Cofins.Ven', 'Perc.Irpj.Ven', 'Perc.Cs.Ven', 'Perc.Comis.Ven', 'Perc.Custo.Op.Ven', 'Perc.Lucro.Ven', 'Perc.Lucro.Min'];
 function csvCell(v) { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 function downloadText(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
 function brNum(v, dec = 2) { return v === '' || v == null ? '' : Number(v).toFixed(dec).replace('.', ','); }
 function csvModel() {
-  const ex = [['0000193', 'Xícara Café Horticool', 'Horticool Green', '79,90', '120', '6', '6', 'https://seusite.com.br/fotos/0000193.jpg'], ['0000195', 'Prato Raso Horticool', 'Horticool Green', '119,90', '40', '1', '1', '']];
+  const ex = [['0000133', 'BULE COM INFUSOR', 'HORTICOOL BLUE', '308,90', '12', '1', '1', 'https://seusite.com.br/fotos/0000133.jpg', '115,22', '0', '0', '0', '10,7', '0', '0', '8', '44', '30'], ['0000135', 'ACUCAREIRO', 'HORTICOOL BLUE', '153,97', '', '1', '1', '', '', '', '', '', '', '', '', '', '', '']];
   downloadText('modelo_produtos_zionne.csv', [CSV_HEAD.join(';'), ...ex.map(r => r.map(csvCell).join(';'))].join('\r\n'));
 }
 function exportProductsCsv() {
-  const rows = data.products.map(p => [p.sku, p.name, p.collection, brNum(p.price), p.stockQty ?? '', p.minQty || 1, p.packQty || 1, p.image && !p.image.startsWith('/img/') ? p.image : '']);
+  const rows = data.products.map(p => [p.sku, p.name, p.collection, brNum(p.price), p.stockQty ?? '', p.minQty || 1, p.packQty || 1, p.image && !p.image.startsWith('/img/') ? p.image : '', p.cost === '' || p.cost == null ? '' : brNum(p.cost), ...FIN_CSV.slice(1).map(([k]) => p.fin && p.fin[k] != null ? String(p.fin[k]).replace('.', ',') : '')]);
   downloadText('produtos_zionne_' + todayYMD() + '.csv', [CSV_HEAD.join(';'), ...rows.map(r => r.map(csvCell).join(';'))].join('\r\n'));
 }
 function parseCsv(text) {
@@ -919,8 +969,11 @@ function parseCsv(text) {
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
   return rows.filter(r => r.some(c => c.trim() !== ''));
 }
+const FIN_CSV = [['cost', 'Preco.Com.Liq'], ['icms', 'Perc.Icms.Ven'], ['pis', 'Perc.Pis.Ven'], ['cofins', 'Perc.Cofins.Ven'], ['irpj', 'Perc.Irpj.Ven'], ['cs', 'Perc.Cs.Ven'], ['comis', 'Perc.Comis.Ven'], ['custoOp', 'Perc.Custo.Op.Ven'], ['lucro', 'Perc.Lucro.Ven'], ['lucroMin', 'Perc.Lucro.Min']];
 function headKey(h) {
   h = h.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const fin = { precocomliq: 'f_cost', custo: 'f_cost', custoliquido: 'f_cost', custoaquisicao: 'f_cost', percicmsven: 'f_icms', icms: 'f_icms', percpisven: 'f_pis', pis: 'f_pis', perccofinsven: 'f_cofins', cofins: 'f_cofins', percirpjven: 'f_irpj', irpj: 'f_irpj', perccsven: 'f_cs', cs: 'f_cs', perccomisven: 'f_comis', comissao: 'f_comis', perccustoopven: 'f_custoOp', custoop: 'f_custoOp', perclucroven: 'f_lucro', lucro: 'f_lucro', perclucrominven: 'f_lucroMin', perclucromin: 'f_lucroMin', lucromin: 'f_lucroMin', lucrominimo: 'f_lucroMin', precoideal: '_ignore' };
+  if (fin[h]) return fin[h] === '_ignore' ? null : fin[h];
   if (/^(codigo|cod|sku|referencia|ref)$/.test(h)) return 'codigo';
   if (/^(produto|nome|nomedoproduto|descricaodoproduto)$/.test(h)) return 'produto';
   if (/^colecao/.test(h)) return 'colecao';
@@ -959,17 +1012,19 @@ function buildCsvPlan(text) {
     if (!sku) return;
     if (seen.has(sku)) errs.push('código repetido no arquivo'); seen.add(sku);
     const price = parseMoney(o.preco), stock = parseIntBR(o.estoque), min = parseIntBR(o.min), emb = parseIntBR(o.emb);
+    const fin = { ...(cur?.fin || {}) }; let cost = cur?.cost ?? '';
+    FIN_CSV.forEach(([k]) => { const raw = o['f_' + k]; if (raw === undefined || raw === '') return; const v = parseMoney(raw); if (Number.isNaN(v)) { errs.push(k === 'cost' ? 'custo inválido' : `% ${k} inválido`); return; } if (k === 'cost') cost = v; else fin[k] = v; });
     if (Number.isNaN(price)) errs.push('preço inválido'); if (Number.isNaN(stock)) errs.push('estoque inválido'); if (Number.isNaN(min)) errs.push('mín. inválido'); if (Number.isNaN(emb)) errs.push('emb. inválida');
     if (!cur && !o.produto) errs.push('produto novo sem nome'); if (!cur && price == null) errs.push('produto novo sem preço'); if (!cur && !o.colecao) errs.push('produto novo sem coleção');
     const next = {
       sku, name: o.produto || cur?.name, collection: o.colecao || cur?.collection, price: price ?? cur?.price,
       stockQty: 'estoque' in o ? (stock == null ? (o.estoque === '' && cur ? cur.stockQty ?? '' : '') : stock) : (cur?.stockQty ?? ''),
       minQty: min ?? cur?.minQty ?? 1, packQty: emb ?? cur?.packQty ?? 1,
-      image: o.url_imagem ? normImg(o.url_imagem) : (cur?.image || ''), description: o.descricao || cur?.description || 'Porcelana de alto padrão, acabamento refinado e design exclusivo.'
+      image: o.url_imagem ? normImg(o.url_imagem) : (cur?.image || ''), cost, fin, description: o.descricao || cur?.description || 'Porcelana de alto padrão, acabamento refinado e design exclusivo.'
     };
     const exCol = data.collections.find(c => c.name.toLowerCase() === String(next.collection || '').toLowerCase()) || [...newCols].map(n => ({ name: n })).find(c => c.name.toLowerCase() === String(next.collection || '').toLowerCase());
     if (exCol) next.collection = exCol.name; else if (next.collection) newCols.add(next.collection);
-    const changes = cur ? ['name', 'collection', 'price', 'stockQty', 'minQty', 'packQty', 'image', 'description'].filter(k => String(cur[k] ?? '') !== String(next[k] ?? '')) : [];
+    const changes = cur ? ['name', 'collection', 'price', 'stockQty', 'minQty', 'packQty', 'image', 'description', 'cost'].filter(k => String(cur[k] ?? '') !== String(next[k] ?? '')).concat(JSON.stringify(cur.fin || {}) !== JSON.stringify(next.fin || {}) ? ['fin'] : []) : [];
     plan.push({ line, cur, next, errs, status: errs.length ? 'erro' : !cur ? 'novo' : changes.length ? 'alterado' : 'igual', changes });
   });
   csvPlan = { plan, newCols: [...newCols], missing: data.products.filter(p => !seen.has(String(p.sku).trim()) && p.active) };
@@ -980,7 +1035,7 @@ function showCsvPreview() {
   const fmtChg = (x, k, f = v => v) => x.cur && x.changes.includes(k) ? `<span class="chg">${esc(f(x.cur[k]) ?? '—')} → <b>${esc(f(x.next[k]) ?? '—')}</b></span>` : esc(f(x.next[k]) ?? '');
   showModal('Importar produtos — conferência', `<div class="csvSummary"><span class="tag on">${cnt('novo')} novos</span><span class="tag blue">${cnt('alterado')} alterados</span><span class="tag off">${cnt('igual')} sem alteração</span>${cnt('erro') ? `<span class="tag red">${cnt('erro')} com erro (serão ignorados)</span>` : ''}${newCols.length ? `<span class="tag warn">Coleções novas: ${esc(newCols.join(', '))}</span>` : ''}</div>
   <p class="small muted">Confira as miniaturas: elas são carregadas direto da URL informada. ⚠ indica imagem que não abriu. Campos em branco no CSV mantêm o valor atual do produto.</p>
-  <div class="tableWrap" style="max-height:48vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Linha</th><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Estoque</th><th>Mín</th><th>Emb</th><th>Situação</th></tr></thead><tbody>${plan.map(x => `<tr class="${x.status}"><td>${x.line}</td><td>${x.next.image ? `<div class="csvThumb"><img src="${esc(x.next.image)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.parentNode.innerHTML='<span class=imgErr title=&quot;Imagem não carregou&quot;>⚠</span>'"></div>` : '<span class="muted">—</span>'}</td><td>${esc(x.next.sku)}</td><td>${fmtChg(x, 'name')}</td><td>${fmtChg(x, 'collection')}</td><td>${fmtChg(x, 'price', v => v == null ? null : BRL(v))}</td><td>${fmtChg(x, 'stockQty', v => v === '' ? '—' : v)}</td><td>${fmtChg(x, 'minQty')}</td><td>${fmtChg(x, 'packQty')}</td><td>${x.status === 'erro' ? `<span class="tag red">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : x.status === 'alterado' ? `<span class="tag blue">Alterado</span>${x.changes.includes('image') ? ' <span class="small muted">(imagem)</span>' : ''}` : '<span class="tag off">Igual</span>'}</td></tr>`).join('')}</tbody></table></div>
+  <div class="tableWrap" style="max-height:48vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Linha</th><th>Imagem</th><th>Código</th><th>Produto</th><th>Coleção</th><th>Preço</th><th>Estoque</th><th>Mín</th><th>Emb</th><th>Custo</th><th>Margem</th><th>Situação</th></tr></thead><tbody>${plan.map(x => `<tr class="${x.status}"><td>${x.line}</td><td>${x.next.image ? `<div class="csvThumb"><img src="${esc(x.next.image)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.parentNode.innerHTML='<span class=imgErr title=&quot;Imagem não carregou&quot;>⚠</span>'"></div>` : '<span class="muted">—</span>'}</td><td>${esc(x.next.sku)}</td><td>${fmtChg(x, 'name')}</td><td>${fmtChg(x, 'collection')}</td><td>${fmtChg(x, 'price', v => v == null ? null : BRL(v))}</td><td>${fmtChg(x, 'stockQty', v => v === '' ? '—' : v)}</td><td>${fmtChg(x, 'minQty')}</td><td>${fmtChg(x, 'packQty')}</td><td>${fmtChg(x, 'cost', v => v === '' || v == null ? '—' : BRL(v))}</td><td>${prodMarginCell(x.next)}</td><td>${x.status === 'erro' ? `<span class="tag red">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : x.status === 'alterado' ? `<span class="tag blue">Alterado</span>${x.changes.includes('image') ? ' <span class="small muted">(imagem)</span>' : ''}${x.changes.includes('fin') ? ' <span class="small muted">(percentuais)</span>' : ''}` : '<span class="tag off">Igual</span>'}</td></tr>`).join('')}</tbody></table></div>
   ${missing.length ? `<label class="checkRow" style="margin-top:10px"><input id="csvInactivate" type="checkbox"> Marcar como <b>Fora de linha</b> os ${missing.length} produto(s) ativos que não estão no arquivo</label>` : ''}
   <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="applyCsvPlan()" ${cnt('novo') + cnt('alterado') + (missing.length ? 1 : 0) ? '' : 'disabled'}>Importar ${cnt('novo') + cnt('alterado')} produto(s)</button></div>`, true);
 }
@@ -1115,6 +1170,213 @@ function applyKitCsvPlan() {
     else if (x.status === 'alterado') { Object.assign(x.cur, x.next); nUpd++; }
   });
   kitCsvPlan = null; closeModal(); saveData(`Kits importados: ${nNew} novo(s), ${nUpd} atualizado(s)`);
+}
+
+/* ================================================================ INTELIGÊNCIA COMERCIAL — núcleo financeiro (somente admin) */
+/* Preço ideal = Custo ÷ (1 − (ICMS+PIS+COFINS+IRPJ+CS+Comissão+Custo Op.+Lucro)/100)
+   Lucro líquido = Preço × (1 − (impostos+comissão+custo op.)/100) − Custo
+   Custo da bonificação = Custo ÷ (1 − (ICMS+PIS+COFINS)/100) */
+const FIN_PCT = [['icms', 'ICMS'], ['pis', 'PIS'], ['cofins', 'COFINS'], ['irpj', 'IRPJ'], ['cs', 'CS'], ['comis', 'Comissão'], ['custoOp', 'Custo Op.'], ['lucro', 'Lucro alvo'], ['lucroMin', 'Lucro mínimo']];
+const FIN_DEF = { icms: 0, pis: 0, cofins: 0, irpj: 10.7, cs: 0, comis: 0, custoOp: 8, lucro: 44, lucroMin: 30, bonusPct: 5, generalDisc: 0 };
+function finDefaults() { return { ...FIN_DEF, ...((data.settings || {}).fin || {}) }; }
+function numOr(v, d) { return v === '' || v == null || isNaN(Number(v)) ? d : Number(v); }
+function finOf(p) {
+  const d = finDefaults(), o = (p && p.fin) || {}, f = {};
+  FIN_PCT.forEach(([k]) => f[k] = numOr(o[k], d[k]));
+  f.cost = numOr(p?.cost, 0); f.hasCost = p?.cost !== '' && p?.cost != null && Number(p.cost) > 0;
+  f.ded = f.icms + f.pis + f.cofins + f.irpj + f.cs + f.comis + f.custoOp;   // % sobre o preço, exceto lucro
+  f.remessa = f.icms + f.pis + f.cofins;                                      // impostos sobre a remessa bonificada
+  const den = 1 - (f.ded + f.lucro) / 100, denMin = 1 - (f.ded + f.lucroMin) / 100;
+  f.ideal = f.hasCost && den > 0 ? f.cost / den : null;
+  f.minPrice = f.hasCost && denMin > 0 ? f.cost / denMin : null;
+  return f;
+}
+function marginAt(f, price) { if (!price) return NaN; return (price * (1 - f.ded / 100) - f.cost) / price; }
+function finStatus(m, alvo, min) { return !Number.isFinite(m) ? '' : m * 100 >= alvo - 0.005 ? 'g' : m * 100 >= min - 0.005 ? 'y' : 'r'; }
+function pctF(v, dec = 1) { return Number.isFinite(v) ? (v * 100).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '%' : '—'; }
+function dotF(st) { return st ? `<span class="fdot ${st}"></span>` : ''; }
+
+/* cálculo de um negócio: itens vendidos (com desconto por item), desconto geral e bonificação */
+function dealCalc(deal) {
+  const byId = new Map(data.products.map(p => [p.id, p])), gd = numOr(deal.gd, 0) / 100, bp = numOr(deal.bp, 0) / 100;
+  let gross = 0, idr = 0, R = 0, ded = 0, C = 0, qty = 0, alvoW = 0, minW = 0, grossDed = 0;
+  const rows = (deal.items || []).map(it => {
+    const p = byId.get(Number(it.productId)), f = finOf(p || { cost: it.cost });
+    const cost = numOr(it.cost, f.cost), q = Math.max(0, numOr(it.qty, 0)), price = numOr(it.price, p?.price || 0), disc = Math.min(100, Math.max(0, numOr(it.disc, 0))) / 100;
+    const unit = price * (1 - disc) * (1 - gd), rev = unit * q, d = rev * f.ded / 100, ct = cost * q, luc = rev - d - ct;
+    gross += price * q; idr += price * (1 - disc) * q; R += rev; ded += d; C += ct; qty += q; grossDed += price * q * f.ded / 100;
+    alvoW += f.lucro * rev; minW += f.lucroMin * rev;
+    const fx = { ...f, cost };
+    return { it, p, f: fx, price, q, disc, unit, rev, ded: d, cost: ct, lucro: luc, m: rev ? luc / rev : NaN, mb: rev ? (rev - ct) / rev : NaN, st: finStatus(rev ? luc / rev : NaN, f.lucro, f.lucroMin), ideal: fx.hasCost || cost ? cost / (1 - (f.ded + f.lucro) / 100) : null };
+  });
+  const def = finDefaults(), alvo = R ? alvoW / R : def.lucro, min = R ? minW / R : def.lucroMin;
+  let bReal = 0, bCost = 0;
+  const bonus = Object.entries(deal.bonus || {}).filter(([, q]) => Number(q) > 0).map(([pid, q]) => {
+    const p = byId.get(Number(pid)), f = finOf(p), it = (deal.items || []).find(i => Number(i.productId) === Number(pid)), cost = numOr(it?.cost, f.cost);
+    const real = (p?.price || 0) * q, bc = cost * q / (1 - f.remessa / 100); bReal += real; bCost += bc;
+    return { p, q: Number(q), real, cost: bc };
+  });
+  const lucro = R - ded - C, avgDed = R ? ded / R : finDefaults().ded / 100;
+  const bT = idr * bp, lucroBonus = lucro - bCost, Rp = R - bT, lucroPay = Rp * (1 - avgDed) - C;
+  const need = (m) => { const den = 1 - avgDed - m / 100; return den > 0 ? (C + bCost) / den : Infinity; };
+  const maxGd = idr ? 1 - need(min) / idr : NaN, maxGdAlvo = idr ? 1 - need(alvo) / idr : NaN;
+  return {
+    rows, bonus, gross, idr, R, ded, C, qty, lucro, avgDed, alvo, min,
+    mLiq: R ? lucro / R : NaN, mBruta: R ? (R - C) / R : NaN, mLiqGross: gross ? (gross - grossDed - C) / gross : NaN, mBrutaGross: gross ? (gross - C) / gross : NaN,
+    bT, bReal, bDiff: bReal - bT, bCost, bCostPct: idr ? bCost / idr : NaN, offer: gd + bp, lucroBonus, mBonus: R ? lucroBonus / R : NaN,
+    lucroPay, mPay: Rp ? lucroPay / Rp : NaN, finDiff: lucroBonus - lucroPay, maxGd, maxGdAlvo, gd, bp,
+    st: finStatus(R ? lucroBonus / R : NaN, alvo, min), missingCost: rows.filter(r => !r.f.cost).length
+  };
+}
+function thermoHtml(m, alvo, min) {
+  const pos = Number.isFinite(m) ? Math.max(1, Math.min(99, m * 100)) : 0;
+  return `<div class="fbar" style="background:linear-gradient(90deg,#d9534f 0 ${min}%,#e8b04a ${min}% ${alvo}%,#5aa364 ${alvo}% 100%)">${Number.isFinite(m) ? `<div class="fpin" style="left:${pos}%">${pctF(m)}</div>` : ''}</div><div class="fbarLeg"><span>0%</span><span>🔴 &lt; ${String(+min.toFixed(1)).replace('.', ',')}%</span><span>🟡 até ${String(+alvo.toFixed(1)).replace('.', ',')}%</span><span>🟢 alvo</span><span>100%</span></div>`;
+}
+
+/* ---------------------------------------------------------------- aba Inteligência Comercial */
+let intel = null, intelSaved = {};
+async function intelInit() {
+  try { intelSaved = await api('/api/admin/analyses', { admin: true }) || {}; } catch { intelSaved = {}; }
+  if (!adminOrders.length) await loadAdminOrders();
+  if (!intel) intelNewSim(true);
+  renderIntel();
+}
+function openIntelTab() { const b = [...document.querySelectorAll('.adminSide button')].find(x => x.textContent.includes('Inteligência')); adminTab('intelAdmin', b); }
+function intelBase(source, key, label) { const d = finDefaults(); return { source, key, label, items: [], bonus: {}, gd: d.generalDisc, bp: d.bonusPct }; }
+function intelNewSim(silent) { intel = intelBase('sim', 'sim:' + Date.now(), 'Simulação de venda'); if (!silent) renderIntel(); }
+function intelFromOrder(id) {
+  const o = adminOrders.find(x => x.id === Number(id)); if (!o) return toast('Selecione um pedido');
+  const saved = intelSaved['order:' + o.id]; if (saved) { intel = JSON.parse(JSON.stringify(saved)); toast('Análise salva deste pedido carregada'); return renderIntel(); }
+  intel = intelBase('order', 'order:' + o.id, `Pedido ${o.number} — ${o.client_name}`);
+  intel.gd = 0; intel.bp = finDefaults().bonusPct;
+  o.items.forEach(it => {
+    if (it.type === 'kit') (it.components || []).forEach(c => intel.items.push({ productId: c.productId, sku: c.sku, name: c.name, price: c.price, qty: c.qty * it.qty, disc: c.price ? +((1 - (c.promoPrice ?? c.price) / c.price) * 100).toFixed(4) : 0, kit: `${it.name} ×${it.qty}` }));
+    else intel.items.push({ productId: it.id, sku: it.sku, name: it.name, price: it.price, qty: it.qty, disc: 0 });
+  });
+  renderIntel();
+}
+function intelFromKit(id, n) {
+  const k = (data.kits || []).find(x => x.id === Number(id)); if (!k) return toast('Selecione um kit');
+  const c = kitCalc(k), nk = Math.max(1, parseInt(n) || 1);
+  intel = intelBase('kit', 'kit:' + k.id, `Kit ${k.name} × ${nk}`); intel.gd = 0;
+  c.rows.forEach(r => intel.items.push({ productId: r.p.id, sku: r.p.sku, name: r.p.name, price: r.price, qty: r.qty * nk, disc: r.price ? +((1 - r.promo / r.price) * 100).toFixed(4) : 0, kit: `Kit ${k.name} ×${nk}` }));
+  renderIntel();
+}
+function intelLoadSaved(key) { const a = intelSaved[key]; if (!a) return; intel = JSON.parse(JSON.stringify(a)); renderIntel(); }
+async function intelSave() {
+  if (!intel) return;
+  if (intel.source === 'sim') { const n = prompt('Nome desta simulação:', intel.label === 'Simulação de venda' ? '' : intel.label); if (!n) return; intel.label = n; }
+  try { await api('/api/admin/analyses/' + encodeURIComponent(intel.key), { method: 'PUT', admin: true, body: intel }); intelSaved[intel.key] = JSON.parse(JSON.stringify({ ...intel, savedAt: new Date().toISOString() })); toast('Análise salva'); renderIntel(); }
+  catch (e) { toast(e.message); }
+}
+async function intelDeleteSaved() {
+  const key = $('icSaved')?.value; if (!key || !intelSaved[key]) return toast('Selecione uma análise salva');
+  if (!confirm('Excluir a análise salva "' + intelSaved[key].label + '"?')) return;
+  await api('/api/admin/analyses/' + encodeURIComponent(key), { method: 'PUT', admin: true, body: {} }); delete intelSaved[key]; renderIntel(); toast('Análise excluída');
+}
+function intelSet(k, v) { intel[k] = numOr(v, 0); renderIntel(); }
+function intelItem(i, k, v) { const it = intel.items[i]; if (!it) return; it[k] = v === '' ? (k === 'cost' ? '' : 0) : Number(v); renderIntel(); }
+function intelBonus(pid, v) { const q = Math.max(0, parseInt(v) || 0); if (q) intel.bonus[pid] = q; else delete intel.bonus[pid]; renderIntel(); }
+function intelRemove(i) { intel.items.splice(i, 1); renderIntel(); }
+function intelAdd(asBonus) {
+  const pid = Number($('icProd').value), q = Math.max(1, parseInt($('icQty').value) || 1), p = data.products.find(x => x.id === pid);
+  if (!p) return toast('Selecione um produto');
+  if (asBonus) { intel.bonus[pid] = (intel.bonus[pid] || 0) + q; }
+  else { const qq = normalizeOrderQty(p, q); if (qq !== q) toast(`Quantidade ajustada para ${qq} (mínimo ${p.minQty || 1}, múltiplo ${p.packQty || 1})`); const e = intel.items.find(i => Number(i.productId) === pid && !i.kit); e ? e.qty += qq : intel.items.push({ productId: pid, sku: p.sku, name: p.name, price: p.price, qty: qq, disc: 0 }); }
+  renderIntel();
+}
+function bonusCandidates(target) {
+  if (!(target > 0)) return [];
+  const inDeal = new Set(intel.items.map(i => Number(i.productId)));
+  return data.products.filter(p => p.active && finOf(p).hasCost && p.price > 0).map(p => {
+    const f = finOf(p), unitCost = f.cost / (1 - f.remessa / 100), pack = Math.max(1, Number(p.packQty) || 1), min = Math.max(1, Number(p.minQty) || 1);
+    let q = Math.max(min, Math.ceil(Math.ceil(target / p.price) / pack) * pack);
+    return { p, q, value: p.price * q, cost: unitCost * q, ratio: p.price / unitCost, inDeal: inDeal.has(p.id) };
+  }).sort((a, b) => (b.ratio - a.ratio) || (Number(b.inDeal) - Number(a.inDeal))).slice(0, 3);
+}
+function intelApplyBonus(pid, q) { intel.bonus = { [pid]: q }; renderIntel(); toast('Bonificação sugerida aplicada'); }
+function renderIntel() {
+  const host = $('intelBody'); if (!host || !intel) return;
+  const d = dealCalc(intel), num = v => String(+Number(v).toFixed(2)).replace('.', ','), inp = v => String(+Number(v || 0).toFixed(4));
+  // controles de origem
+  const ordOpts = adminOrders.map(o => `<option value="${o.id}">${esc(o.number)} — ${esc(o.client_name)} — ${BRL(o.total)}${intelSaved['order:' + o.id] ? ' ✓' : ''}</option>`).join('');
+  const kitOpts = (data.kits || []).map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('');
+  const savedOpts = Object.entries(intelSaved).sort((a, b) => (b[1].savedAt || '').localeCompare(a[1].savedAt || '')).map(([k, a]) => `<option value="${esc(k)}">${esc(a.label)}${a.savedAt ? ' — ' + new Date(a.savedAt).toLocaleDateString('pt-BR') : ''}</option>`).join('');
+  $('intelSources').innerHTML = `<div class="icSrc"><label>Pedido recebido</label><div><select id="icOrder"><option value="">Selecione…</option>${ordOpts}</select><button class="btn" onclick="intelFromOrder($('icOrder').value)">Analisar</button></div></div>
+   <div class="icSrc"><label>Kit promocional</label><div><select id="icKit"><option value="">Selecione…</option>${kitOpts}</select><input id="icKitN" type="number" min="1" value="10" title="Quantidade de kits"><button class="btn" onclick="intelFromKit($('icKit').value,$('icKitN').value)">Analisar</button></div></div>
+   <div class="icSrc"><label>Simulação de venda</label><div><button class="btn" onclick="intelNewSim()">+ Nova simulação</button></div></div>
+   <div class="icSrc"><label>Análises salvas</label><div><select id="icSaved"><option value="">${savedOpts ? 'Selecione…' : 'Nenhuma ainda'}</option>${savedOpts}</select><button class="btn" onclick="intelLoadSaved($('icSaved').value)">Abrir</button><button class="btn" title="Excluir análise salva" onclick="intelDeleteSaved()">🗑</button></div></div>`;
+  const prodOpts = data.products.filter(p => p.active).sort((a, b) => a.name.localeCompare(b.name)).map(p => `<option value="${p.id}">${esc(p.sku)} — ${esc(p.name)} • ${BRL(p.price)}</option>`).join('');
+  const lowest = d.rows.filter(r => r.rev > 0 && r.f.cost).sort((a, b) => a.m - b.m)[0];
+  const below = d.rows.filter(r => r.f.cost && r.p && r.p.price < finOf(r.p).ideal - 0.005);
+  const cands = bonusCandidates(d.bT), best = cands[0];
+  const recs = [];
+  if (!d.rows.length) recs.push(['🧮', 'Inclua produtos na venda (abaixo) ou escolha um pedido/kit para analisar.', '']);
+  else {
+    if (d.missingCost) recs.push(['⚠️', `<b>${d.missingCost} item(ns) sem custo cadastrado</b> — margem calculada de forma incompleta. Cadastre o custo no produto ou pelo CSV (Preco.Com.Liq).`, '']);
+    recs.push([d.st === 'g' ? '✅' : d.st === 'y' ? '🟡' : '⛔', `Margem líquida final (desconto + bonificação): <b>${pctF(d.mBonus)}</b> — ${d.st === 'g' ? 'atinge o lucro alvo. Negócio aprovado.' : d.st === 'y' ? `abaixo do alvo de ${num(d.alvo)}%, mas acima do mínimo de ${num(d.min)}%. Aprovar com atenção.` : `<b>abaixo do lucro mínimo de ${num(d.min)}%</b>. Reveja desconto ou bonificação.`}`, '']);
+    if (Number.isFinite(d.maxGd)) recs.push(['📐', d.maxGd > d.gd ? `Desconto geral máximo para manter ${num(d.min)}% de lucro: <b>${pctF(d.maxGd)}</b> (hoje ${pctF(d.gd)}). Para o lucro alvo: ${pctF(Math.max(0, d.maxGdAlvo))}.` : `O desconto geral atual (${pctF(d.gd)}) já passa do máximo permitido (${pctF(Math.max(0, d.maxGd))}).`, `<button onclick="intelSet('gd',${Math.max(0, Math.floor(d.maxGd * 1000) / 10)})">Aplicar máximo</button>`]);
+    if (best) recs.push(['🎁', `Para bonificar ${BRL(d.bT)} (${pctF(d.bp)} da receita), a melhor opção é <b>${best.q}× ${esc(best.p.name)}</b>: entrega ${BRL(best.value)} em valor percebido com custo de ${BRL(best.cost)}.${cands.length > 1 ? `<br><span class="small" style="opacity:.8">Alternativas: ${cands.slice(1).map(c => `${c.q}× ${esc(c.p.name)} (custo ${BRL(c.cost)})`).join(' • ')}</span>` : ''}`, `<button onclick="intelApplyBonus(${best.p.id},${best.q})">Aplicar</button>`]);
+    if (d.bCost > 0) recs.push(['⚖️', d.finDiff >= 0 ? `Bonificar rende <b>${BRL(d.finDiff)}</b> a mais que dar o mesmo valor (${BRL(d.bT)}) em desconto.` : `Dar ${BRL(d.bT)} em desconto rende ${BRL(-d.finDiff)} a mais que a bonificação atual.`, '']);
+    if (lowest) recs.push(['🔎', `Menor margem do negócio: <b>${esc(lowest.it.name || lowest.p?.name)}</b>${lowest.it.kit ? ' (kit)' : ''} com ${pctF(lowest.m)}.`, '']);
+    if (below.length) recs.push(['🏷', `${below.length} produto(s) com preço de catálogo abaixo do preço ideal: ${below.slice(0, 3).map(r => `${esc(r.p.name)} (ideal ${BRL(finOf(r.p).ideal)})`).join(', ')}${below.length > 3 ? '…' : ''}.`, '']);
+  }
+  const bonusOnly = Object.keys(intel.bonus).map(Number).filter(pid => !intel.items.some(i => Number(i.productId) === pid));
+  host.innerHTML = `
+  <div class="icHead"><div><div class="icLabel">${intel.source === 'order' ? '▧' : intel.source === 'kit' ? '✦' : '🧮'} ${esc(intel.label)}</div><div class="small muted">${d.rows.length} item(ns) • ${d.qty.toLocaleString('pt-BR')} un.${intelSaved[intel.key] ? ' • análise salva em ' + new Date(intelSaved[intel.key].savedAt).toLocaleString('pt-BR') : ''}</div></div>
+   <div class="icParams2"><div class="field"><label>Desconto geral (%)</label><input type="number" step="0.1" min="0" max="100" value="${inp(intel.gd)}" onchange="intelSet('gd',this.value)"></div><div class="field"><label>Bonificação s/ receita (%)</label><input type="number" step="0.1" min="0" max="100" value="${inp(intel.bp)}" onchange="intelSet('bp',this.value)"></div><div class="field ro"><label>Deduções médias</label><input readonly value="${pctF(d.avgDed, 2)}"></div><div class="field ro"><label>Lucro alvo / mínimo</label><input readonly value="${num(d.alvo)}% / ${num(d.min)}%"></div></div></div>
+  <div class="icGrid">
+   <section class="icPanel"><div class="icPanelT">▣ RESUMO FINANCEIRO <span>${d.qty.toLocaleString('pt-BR')} un.</span></div><div class="icMet">
+    <div class="icM"><span>💵 Custo total</span><b>${BRL(d.C)}</b></div>
+    <div class="icM"><span>🧾 Receita sem descontos</span><b>${BRL(d.gross)}</b></div>
+    <div class="icM"><span>🧾 Receita c/ desconto por item</span><b>${BRL(d.idr)}</b></div>
+    <div class="icM"><span>💰 Receita final (todos os descontos)</span><b>${BRL(d.R)}</b></div>
+    <div class="icM"><span>🏛 Impostos + comissão + custo op.</span><b>${BRL(d.ded)}</b></div>
+    <div class="icM"><span>💸 Lucro líquido</span><b>${BRL(d.lucro)}</b></div>
+    <div class="icM"><span>📈 Margem líquida SEM descontos</span><b>${pctF(d.mLiqGross)}</b></div>
+    <div class="icM ${finStatus(d.mLiq, d.alvo, d.min)}"><span>📉 Margem líquida COM descontos</span><b>${dotF(finStatus(d.mLiq, d.alvo, d.min))}${pctF(d.mLiq)}</b></div>
+    <div class="icM"><span>Margem bruta (receita − custo)</span><b>${pctF(d.mBruta)}</b></div>
+    <div class="icM"><span>📦 Quantidade vendida</span><b>${d.qty.toLocaleString('pt-BR')}</b></div>
+   </div></section>
+   <section class="icPanel"><div class="icPanelT gold">🎁 SIMULAÇÃO DE BONIFICAÇÃO <span>alvo ${pctF(d.bp)} da receita</span></div><div class="icMet">
+    <div class="icM"><span>🎯 Valor alvo da bonificação</span><b>${BRL(d.bT)}</b></div>
+    <div class="icM"><span>🛍 Valor real bonificado (preço venda)</span><b>${BRL(d.bReal)}</b></div>
+    <div class="icM"><span>⚖ Diferença (real − alvo)</span><b>${BRL(d.bDiff)}</b></div>
+    <div class="icM"><span>📦 Custo da bonificação (c/ impostos remessa)</span><b>${BRL(d.bCost)}</b></div>
+    <div class="icM"><span>🧮 Custo bonif. sobre a receita</span><b>${pctF(d.bCostPct)}</b></div>
+    <div class="icM"><span>🏷 Desconto total ofertado</span><b>${pctF(d.offer)}</b></div>
+    <div class="icM ${d.st}" style="grid-column:1/-1"><span>📉 Margem líquida final (desconto + bonificação)</span><b>${dotF(d.st)}${pctF(d.mBonus)}</b></div>
+   </div>
+   <div class="icCmp"><div><small>Pagar a mercadoria (desconto)</small><b>${BRL(d.lucroPay)}</b><small>margem ${pctF(d.mPay)}</small></div><div class="hl"><small>Bonificar</small><b>${BRL(d.lucroBonus)}</b><small>margem ${pctF(d.mBonus)}</small></div><div><small>Diferença financeira</small><b>${BRL(d.finDiff)}</b><small>${pctF(d.R ? d.finDiff / d.R : NaN)} da receita</small></div></div>
+   </section>
+  </div>
+  <div class="icLow">
+   <div class="icInsight"><h3>◈ Recomendações da inteligência comercial</h3><ul>${recs.map(([i, t, b]) => `<li><i>${i}</i><span>${t}</span>${b || '<span></span>'}</li>`).join('')}</ul></div>
+   <div class="icGauge"><h4>Termômetro de margem</h4>${thermoHtml(d.mBonus, d.alvo, d.min)}
+    <div class="icRows"><div class="icRow"><span>Receita final</span><b>${BRL(d.R)}</b></div><div class="icRow"><span>(−) Impostos, comissão, custo op.</span><b>${BRL(d.ded)}</b></div><div class="icRow"><span>(−) Custo das mercadorias</span><b>${BRL(d.C)}</b></div><div class="icRow"><span>(−) Custo da bonificação</span><b>${BRL(d.bCost)}</b></div><div class="icRow tot"><span>(=) Resultado do negócio</span><b>${BRL(d.lucroBonus)}</b></div></div></div>
+  </div>
+  <div class="panel"><div class="panelTitle"><h3>Itens do negócio</h3><span class="small muted">Custo vem do cadastro do produto • alterações aqui valem só para esta análise</span></div>
+   <div class="kitPicker" style="grid-template-columns:1fr 80px auto auto"><select id="icProd"><option value="">Incluir produto…</option>${prodOpts}</select><input id="icQty" type="number" min="1" value="1"><button class="btn primary" onclick="intelAdd(false)">+ Venda</button><button class="btn" onclick="intelAdd(true)">🎁 Bonificar</button></div>
+   <div class="tableWrap"><table class="icTable"><thead><tr><th>Código</th><th>Produto</th><th>Preço</th><th>Qtd</th><th>Custo un.</th><th>Desc. item %</th><th>Preço final</th><th>Subtotal</th><th>Deduções</th><th>Lucro líq.</th><th>Margem líq.</th><th>Preço ideal</th><th>Qtd bonif.</th><th>Custo bonif.</th><th></th></tr></thead><tbody>
+   ${d.rows.map((r, i) => { const bq = intel.bonus[r.it.productId] || 0, bc = bq ? (r.f.cost * bq) / (1 - r.f.remessa / 100) : 0; return `<tr class="${r.it.kit ? 'kit' : ''}"><td>${esc(r.it.sku || r.p?.sku || '')}</td><td><b>${esc(r.it.name || r.p?.name || '')}</b>${r.it.kit ? `<span class="kitTag">${esc(r.it.kit)}</span>` : ''}${!r.p ? ' <span class="tag red">produto removido</span>' : ''}</td><td>${BRL(r.price)}</td><td><input value="${r.q}" type="number" min="0" onchange="intelItem(${i},'qty',this.value)"></td><td><input value="${r.f.cost ? inp(r.f.cost) : ''}" placeholder="—" type="number" step="0.01" onchange="intelItem(${i},'cost',this.value)"></td><td><input value="${inp(r.disc * 100)}" type="number" step="0.01" min="0" max="100" onchange="intelItem(${i},'disc',this.value)"></td><td>${BRL(r.unit)}</td><td>${BRL(r.rev)}</td><td>${BRL(r.ded)}</td><td>${r.f.cost ? BRL(r.lucro) : '—'}</td><td>${r.f.cost ? dotF(r.st) + pctF(r.m) : '<span class="muted">sem custo</span>'}</td><td>${r.f.cost ? BRL(r.ideal) : '—'}</td><td><input class="bon" value="${bq}" type="number" min="0" onchange="intelBonus(${Number(r.it.productId)},this.value)"></td><td>${bq ? BRL(bc) : '—'}</td><td><button class="link" style="color:#a34b44" onclick="intelRemove(${i})">×</button></td></tr>`; }).join('')}
+   ${bonusOnly.map(pid => { const p = data.products.find(x => x.id === pid), f = finOf(p), bq = intel.bonus[pid]; return `<tr class="bonusRow"><td>${esc(p?.sku || '')}</td><td><b>${esc(p?.name || 'Produto removido')}</b><span class="kitTag" style="background:#f3e7c9;color:#7a5a1a">só bonificação</span></td><td>${BRL(p?.price)}</td><td>—</td><td>${f.cost ? num(f.cost) : '—'}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td><input class="bon" value="${bq}" type="number" min="0" onchange="intelBonus(${pid},this.value)"></td><td>${BRL(f.cost * bq / (1 - f.remessa / 100))}</td><td><button class="link" style="color:#a34b44" onclick="intelBonus(${pid},0)">×</button></td></tr>`; }).join('')}
+   ${!d.rows.length && !bonusOnly.length ? '<tr><td colspan="15" class="muted" style="text-align:center;padding:22px">Nenhum item. Use "Incluir produto" acima ou escolha um pedido/kit.</td></tr>' : ''}
+   </tbody></table></div></div>`;
+}
+function intelExportCsv() {
+  if (!intel) return; const d = dealCalc(intel), n = v => Number(v || 0).toFixed(2).replace('.', ',');
+  const head = ['Código', 'Produto', 'Kit', 'Preço', 'Qtd', 'Custo un.', 'Desc. item %', 'Preço final', 'Subtotal', 'Deduções', 'Lucro líquido', 'Margem líquida %', 'Preço ideal', 'Qtd bonificação', 'Custo bonificação'];
+  const rows = d.rows.map(r => { const bq = intel.bonus[r.it.productId] || 0; return [r.it.sku, r.it.name, r.it.kit || '', n(r.price), r.q, n(r.f.cost), n(r.disc * 100), n(r.unit), n(r.rev), n(r.ded), n(r.lucro), n(r.m * 100), n(r.ideal), bq, n(bq ? r.f.cost * bq / (1 - r.f.remessa / 100) : 0)]; });
+  d.bonus.filter(b => !intel.items.some(i => Number(i.productId) === b.p?.id)).forEach(b => rows.push([b.p?.sku, b.p?.name, 'só bonificação', n(b.p?.price), 0, '', '', '', '', '', '', '', '', b.q, n(b.cost)]));
+  const sum = [['Análise', intel.label], ['Desconto geral %', n(d.gd * 100)], ['Bonificação %', n(d.bp * 100)], ['Receita sem descontos', n(d.gross)], ['Receita final', n(d.R)], ['Impostos+comissão+custo op.', n(d.ded)], ['Custo das mercadorias', n(d.C)], ['Custo da bonificação', n(d.bCost)], ['Resultado do negócio', n(d.lucroBonus)], ['Margem líquida final %', n(d.mBonus * 100)], ['Desconto geral máximo %', n(d.maxGd * 100)]];
+  downloadText('analise_' + intel.label.replace(/[^\w]+/g, '_').slice(0, 40) + '_' + todayYMD() + '.csv', [head.join(';'), ...rows.map(r => r.map(csvCell).join(';')), '', ...sum.map(r => r.map(csvCell).join(';'))].join('\r\n'));
+}
+function intelPrint() {
+  if (!intel) return; const d = dealCalc(intel);
+  $('printOrder').innerHTML = `<div class="print"><div class="printHead"><img src="${LOGO}"><div style="text-align:right"><b>ANÁLISE COMERCIAL — USO INTERNO</b><br><small>${esc(intel.label)}</small><br><small>${new Date().toLocaleString('pt-BR')}</small></div></div>
+  <table><tbody>${[['Receita sem descontos', BRL(d.gross)], ['Receita final', BRL(d.R)], ['Impostos + comissão + custo op.', BRL(d.ded)], ['Custo das mercadorias', BRL(d.C)], ['Custo da bonificação', BRL(d.bCost)], ['Resultado do negócio', BRL(d.lucroBonus)], ['Margem líquida (com desconto)', pctF(d.mLiq)], ['Margem líquida final (desconto + bonificação)', pctF(d.mBonus)], ['Lucro alvo / mínimo', `${pctF(d.alvo / 100)} / ${pctF(d.min / 100)}`], ['Desconto geral aplicado / máximo', `${pctF(d.gd)} / ${pctF(d.maxGd)}`]].map(([a, b]) => `<tr><td>${a}</td><td style="text-align:right"><b>${b}</b></td></tr>`).join('')}</tbody></table>
+  <table style="margin-top:12px"><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Preço final</th><th>Subtotal</th><th>Custo</th><th>Lucro líq.</th><th>Margem</th><th>Bonif.</th></tr></thead><tbody>${d.rows.map(r => `<tr><td>${esc(r.it.sku)}</td><td>${esc(r.it.name)}${r.it.kit ? ' (kit)' : ''}</td><td>${r.q}</td><td>${BRL(r.unit)}</td><td>${BRL(r.rev)}</td><td>${BRL(r.cost)}</td><td>${BRL(r.lucro)}</td><td>${pctF(r.m)}</td><td>${intel.bonus[r.it.productId] || ''}</td></tr>`).join('')}</tbody></table></div>`;
+  setTimeout(() => window.print(), 150);
 }
 
 /* ---------------------------------------------------------------- util */
