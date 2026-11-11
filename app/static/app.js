@@ -831,7 +831,7 @@ function refreshKitPicker() {
     .sort((a, b) => (a.collection || '').localeCompare(b.collection || '') || a.name.localeCompare(b.name));
   const nIn = list.filter(p => inKit.has(p.id)).length;
   sel.innerHTML = `<option value="">${list.length ? `Selecione um produto… (${list.length} disponíveis${nIn ? `, ${nIn} já no kit` : ''})` : 'Nenhum produto encontrado'}</option>` +
-    list.map(p => `<option value="${p.id}" ${inKit.has(p.id) ? 'class="inKit"' : ''}>${inKit.has(p.id) ? '✓ ' : '\u2003 '}${esc(p.sku)} — ${esc(p.name)}${col ? '' : ` (${esc(p.collection)})`} • ${BRL(p.price)}${inKit.has(p.id) ? ` — já no kit: ${inKit.get(p.id)} un.` : ''}</option>`).join('');
+    list.map(p => `<option value="${p.id}" ${inKit.has(p.id) ? 'class="inKit"' : ''}>${inKit.has(p.id) ? '✓ ' : '\u2003 '}${esc(p.sku)} — ${esc(p.name)}${col ? '' : ` (${esc(p.collection)})`} • ${BRL(p.price)} • Est.: ${stockOf(p) == null ? 's/ controle' : stockOf(p).toLocaleString('pt-BR') + (stockOf(p) === 0 ? ' ⚠ sem estoque' : '')}${inKit.has(p.id) ? ` — já no kit: ${inKit.get(p.id)} un.` : ''}</option>`).join('');
   if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
   $('kfPickInfo').innerHTML = kitDraft.items.length ? `✓ = produto já incluído no kit (incluir de novo soma a quantidade). Kit com <b>${kitDraft.items.length}</b> produto(s).` : '';
 }
