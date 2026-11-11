@@ -42,11 +42,19 @@ Os kits possíveis usam o campo **Estoque (quantidade)** do produto (em branco =
 O estoque não é baixado automaticamente pelos pedidos: atualize a quantidade no produto.
 No pedido, o kit sai como `KIT-n` com a composição detalhada (PDF, WhatsApp e CSV).
 
+### Kits exclusivos por grupo de clientes
+
+Clientes / Tokens → **Grupos de clientes**: crie os grupos (ex.: Grupo A, Grupo B) e vincule cada cliente a um grupo.
+No kit, **Disponível para**: "Todos os clientes" ou "Somente grupos" (marque os grupos).
+O servidor só envia ao cliente os kits do grupo dele (e recusa pedido de kit de outro grupo).
+Na pré-visualização do admin, escolha "Ver como" para conferir o catálogo de cada grupo.
+
 ### Kits por planilha (CSV)
 
 Admin → Kits promocionais → **Baixar modelo CSV** / **Exportar CSV** / **Importar CSV**.
 Uma linha por item do kit; linhas com o mesmo nome de kit formam um kit (dados do kit só na 1ª linha).
-Colunas: `Kit; Descrição; Condição; Valor; Código produto; Qtd por kit; Preço promo item; Início; Fim; Limite kits; Ativo; Banner; Selo banner; Título banner; Subtítulo banner; Botão banner; URL imagem kit; URL imagem banner`.
+Colunas: `Kit; Grupos; Descrição; Condição; Valor; Código produto; Qtd por kit; Preço promo item; Início; Fim; Limite kits; Ativo; Banner; Selo banner; Título banner; Subtítulo banner; Botão banner; URL imagem kit; URL imagem banner`.
+- Grupos: `Todos` ou nomes dos grupos separados por vírgula (ex.: `Grupo A, Grupo B`).
 - Condição: `%`, `R$`, `Preço final` ou `Manual` (em Manual, use a coluna "Preço promo item").
 - Kit com nome já existente é atualizado e a composição é substituída pela do arquivo.
 

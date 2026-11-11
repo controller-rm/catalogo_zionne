@@ -344,12 +344,15 @@ async function openAdmin() {
   }
 }
 function logoutAdmin() { localStorage.removeItem(ASESS); history.replaceState(null, '', '/'); start(); }
+let previewGroup = '';
+function setPreviewGroup(v) { previewGroup = v; loadCart(); refreshCatalog(); }
 function previewCatalog() {
   adminPreview = true;
   me = { name: 'Pré-visualização (Admin)', validity: new Date(new Date().getFullYear(), 11, 31).toISOString().slice(0, 10), priceTable: '—' };
   loadCart(); showApp(me); myOrders = []; renderMyOrders();
+  $('previewGroupSel').innerHTML = '<option value="">Cliente sem grupo</option>' + groups().map(g => `<option value="${g.id}" ${String(previewGroup) === String(g.id) ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
 }
-function refreshAdmin() { data.kits = data.kits || []; renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
+function refreshAdmin() { data.kits = data.kits || []; data.groups = data.groups || []; renderGroups(); renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
 function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); if (id === 'intelAdmin') intelInit(); }
 
 let saving = Promise.resolve();
@@ -367,7 +370,7 @@ function saveData(msg) {
   return saving;
 }
 async function saveClients(msg) {
-  try { const r = await api('/api/admin/clients', { method: 'PUT', admin: true, body: { clients } }); clients = r.clients; renderClients(); renderDashboard(); if (msg) toast(msg); return true; }
+  try { const r = await api('/api/admin/clients', { method: 'PUT', admin: true, body: { clients } }); clients = r.clients; renderClients(); renderGroups(); renderDashboard(); if (msg) toast(msg); return true; }
   catch (e) { toast('Não foi possível salvar: ' + e.message); const r = await api('/api/admin/data', { admin: true }).catch(() => null); if (r) { clients = r.clients; renderClients(); } return false; }
 }
 function renderDashboard() {
@@ -602,16 +605,44 @@ function useGeneratedTokenInClient() {
   if (!lastGeneratedToken) return toast('Gere um token primeiro.');
   showModal('Novo cliente / token', clientForm({ active: true, name: $('tgName').value.trim(), docDisplay: $('tgDoc').value.trim(), token: lastGeneratedToken, validity: $('tgValidity').value, priceTable: 'Revenda Premium' }));
 }
+/* ---------------------------------------------------------------- grupos de clientes */
+function groups() { return (data.groups || []).slice().sort((a, b) => a.name.localeCompare(b.name)); }
+function groupName(id) { return (data.groups || []).find(g => g.id === Number(id))?.name; }
+function groupTag(id) { const n = groupName(id); return n ? `<span class="tag blue">${esc(n)}</span>` : '<span class="muted">—</span>'; }
+function renderGroups() {
+  const el = $('groupsBody'); if (!el) return;
+  const kitsOf = gid => (data.kits || []).filter(k => (k.groups || []).map(Number).includes(gid));
+  el.innerHTML = groups().map(g => `<tr><td><b>${esc(g.name)}</b>${g.description ? `<br><span class="muted">${esc(g.description)}</span>` : ''}</td><td>${clients.filter(c => Number(c.groupId) === g.id).length}</td><td>${kitsOf(g.id).map(k => `<span class="tag warn" style="margin:1px">${esc(k.name)}</span>`).join(' ') || '<span class="muted">—</span>'}</td><td class="actionsCell"><button onclick="editGroup(${g.id})">Editar</button><button class="red" onclick="deleteGroup(${g.id})">Excluir</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px">Nenhum grupo cadastrado. Crie grupos para oferecer kits exclusivos.</td></tr>';
+  const sel = $('adminClientGroup'); if (sel) { const v = sel.value; sel.innerHTML = '<option value="">Todos os grupos</option><option value="none">Sem grupo</option>' + groups().map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join(''); sel.value = v; }
+}
+function groupForm(g = {}) { return `<div class="field"><label>Nome do grupo</label><input id="gfName" value="${esc(g.name || '')}" placeholder="Ex.: Grupo A — Grandes contas"></div><div class="field"><label>Descrição (uso interno)</label><input id="gfDesc" value="${esc(g.description || '')}" placeholder="Ex.: clientes com maior poder de compra"></div><div class="btnRow"><button class="btn primary" onclick="saveGroup(${g.id || 0})">Salvar grupo</button></div>`; }
+function newGroup() { showModal('Novo grupo de clientes', groupForm()); }
+function editGroup(id) { showModal('Editar grupo de clientes', groupForm((data.groups || []).find(g => g.id === id))); }
+function saveGroup(id) {
+  const name = $('gfName').value.trim(); if (!name) return toast('Informe o nome do grupo');
+  data.groups = data.groups || [];
+  if (data.groups.some(g => g.name.toLowerCase() === name.toLowerCase() && g.id !== id)) return toast('Já existe um grupo com este nome');
+  const obj = { name, description: $('gfDesc').value.trim() };
+  if (id) Object.assign(data.groups.find(g => g.id === id), obj); else data.groups.push({ id: nextId(data.groups), ...obj });
+  closeModal(); saveData('Grupo salvo');
+}
+async function deleteGroup(id) {
+  const g = data.groups.find(x => x.id === id), kits = (data.kits || []).filter(k => (k.groups || []).map(Number).includes(id)), cl = clients.filter(c => Number(c.groupId) === id);
+  if (kits.length) return alert(`O grupo "${g.name}" está vinculado a ${kits.length} kit(s): ${kits.map(k => k.name).join(', ')}.\n\nAltere o campo "Disponível para" desses kits antes de excluir o grupo.`);
+  if (!confirm(`Excluir o grupo "${g.name}"?${cl.length ? `\n${cl.length} cliente(s) ficarão sem grupo.` : ''}`)) return;
+  if (cl.length) { cl.forEach(c => c.groupId = ''); if (!await saveClients()) return; }
+  data.groups = data.groups.filter(x => x.id !== id); saveData('Grupo excluído');
+}
 function renderClients() {
   const b = $('clientsBody'); if (!b) return;
   const q = ($('adminClientSearch')?.value || '').toLowerCase(), qd = normalizeDoc(q);
-  const list = clients.filter(c => !q || (c.name || '').toLowerCase().includes(q) || (qd && (c.doc || '').includes(qd)));
+  const gf = $('adminClientGroup')?.value || ''; const list = clients.filter(c => (!q || (c.name || '').toLowerCase().includes(q) || (qd && (c.doc || '').includes(qd))) && (!gf || (gf === 'none' ? !c.groupId : String(c.groupId) === gf)));
   const today = todayYMD();
-  b.innerHTML = list.map(c => { const expired = c.validity < today; return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.docDisplay || c.doc)}</td><td style="font-family:Consolas">${esc(c.token)}</td><td>${new Date(c.validity + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td>${esc(c.priceTable || 'Padrão')}</td><td><span class="tag ${!c.active ? 'off' : expired ? 'warn' : 'on'}">${!c.active ? 'Bloqueado' : expired ? 'Vencido' : 'Ativo'}</span></td><td class="actionsCell"><button onclick="shareClient(${c.id})">Link / WhatsApp</button><button onclick="editClient(${c.id})">Editar</button><button onclick="renewClient(${c.id})">Renovar</button><button onclick="toggleClient(${c.id})">${c.active ? 'Bloquear' : 'Ativar'}</button><button class="red" onclick="deleteClient(${c.id})">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Nenhum cliente cadastrado.</td></tr>';
+  b.innerHTML = list.map(c => { const expired = c.validity < today; return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.docDisplay || c.doc)}</td><td style="font-family:Consolas">${esc(c.token)}</td><td>${new Date(c.validity + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td>${groupTag(c.groupId)}</td><td><span class="tag ${!c.active ? 'off' : expired ? 'warn' : 'on'}">${!c.active ? 'Bloqueado' : expired ? 'Vencido' : 'Ativo'}</span></td><td class="actionsCell"><button onclick="shareClient(${c.id})">Link / WhatsApp</button><button onclick="editClient(${c.id})">Editar</button><button onclick="renewClient(${c.id})">Renovar</button><button onclick="toggleClient(${c.id})">${c.active ? 'Bloquear' : 'Ativar'}</button><button class="red" onclick="deleteClient(${c.id})">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Nenhum cliente cadastrado.</td></tr>';
 }
 function clientForm(c = {}) {
   const d = new Date(); d.setFullYear(d.getFullYear() + 1);
-  return `<div class="grid2"><div class="field"><label>Cliente</label><input id="clName" value="${esc(c.name || '')}"></div><div class="field"><label>CNPJ / CPF</label><input id="clDoc" value="${esc(c.docDisplay || '')}"></div><div class="field"><label>Validade</label><input id="clValidity" type="date" value="${c.validity || d.toISOString().slice(0, 10)}"></div><div class="field"><label>Tabela de preço</label><input id="clPrice" value="${esc(c.priceTable || 'Revenda Premium')}"></div><div class="field" style="grid-column:1/-1"><label>Token</label><div style="display:flex;gap:6px"><input id="clToken" value="${esc(c.token || '')}"><button type="button" class="btn" onclick="generateClientFormToken()">Gerar</button></div></div><label class="checkRow"><input id="clActive" type="checkbox" ${c.active !== false ? 'checked' : ''}> Acesso ativo</label></div><div style="text-align:right;margin-top:12px"><button class="btn primary" onclick="saveClient(${c.id || 0})">Salvar acesso</button></div>`;
+  return `<div class="grid2"><div class="field"><label>Cliente</label><input id="clName" value="${esc(c.name || '')}"></div><div class="field"><label>CNPJ / CPF</label><input id="clDoc" value="${esc(c.docDisplay || '')}"></div><div class="field"><label>Validade</label><input id="clValidity" type="date" value="${c.validity || d.toISOString().slice(0, 10)}"></div><div class="field"><label>Grupo de clientes</label><select id="clGroup"><option value="">Sem grupo (vê só os kits para todos)</option>${groups().map(g => `<option value="${g.id}" ${Number(c.groupId) === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select><input id="clPrice" type="hidden" value="${esc(c.priceTable || '')}"></div><div class="field" style="grid-column:1/-1"><label>Token</label><div style="display:flex;gap:6px"><input id="clToken" value="${esc(c.token || '')}"><button type="button" class="btn" onclick="generateClientFormToken()">Gerar</button></div></div><label class="checkRow"><input id="clActive" type="checkbox" ${c.active !== false ? 'checked' : ''}> Acesso ativo</label></div><div style="text-align:right;margin-top:12px"><button class="btn primary" onclick="saveClient(${c.id || 0})">Salvar acesso</button></div>`;
 }
 async function generateClientFormToken() {
   const doc = normalizeDoc($('clDoc').value), validity = $('clValidity').value;
@@ -622,7 +653,7 @@ function newClient() { showModal('Novo cliente / token', clientForm({ active: tr
 function editClient(id) { showModal('Editar cliente / token', clientForm(clients.find(x => x.id === id))); }
 async function saveClient(id) {
   const display = $('clDoc').value.trim();
-  const obj = { name: $('clName').value.trim(), doc: normalizeDoc(display), docDisplay: display, token: $('clToken').value.trim().toUpperCase(), validity: $('clValidity').value, priceTable: $('clPrice').value.trim(), active: $('clActive').checked };
+  const obj = { name: $('clName').value.trim(), doc: normalizeDoc(display), docDisplay: display, token: $('clToken').value.trim().toUpperCase(), validity: $('clValidity').value, priceTable: $('clPrice').value.trim(), groupId: $('clGroup').value ? Number($('clGroup').value) : '', active: $('clActive').checked };
   if (!obj.name || !obj.doc || !obj.token || !obj.validity) return toast('Preencha cliente, CNPJ/CPF, validade e token.');
   if (clients.some(x => x.doc === obj.doc && x.id !== id)) return toast('Já existe um cliente com este CNPJ/CPF.');
   const backup = JSON.parse(JSON.stringify(clients));
@@ -719,7 +750,7 @@ function kitBadge(k) { const pct = k.full ? k.saving / k.full * 100 : 0; return 
 /* lista de kits para o catálogo (cliente vem pronto do servidor; pré-visualização do admin calcula aqui) */
 function clientKits() {
   if (!adminPreview) return data.kits || [];
-  return (data.kits || []).filter(isKitVisible).map(k => {
+  return (data.kits || []).filter(isKitVisible).filter(k => !(k.groups || []).length || (previewGroup && (k.groups || []).map(Number).includes(Number(previewGroup)))).map(k => {
     const c = kitCalc(k);
     if (!c.rows.length || c.missing.length || c.rows.some(r => r.inactive)) return null;
     return { ...k, full: c.full, price: c.price, saving: c.saving, maxKits: c.maxKits, available: k.showAvailable ? c.maxKits : null, soldOut: c.maxKits === 0, components: c.rows.map(r => ({ productId: r.p.id, sku: r.p.sku, name: r.p.name, image: r.p.image, qty: r.qty, price: r.p.price, promoPrice: r.promo })) };
@@ -761,7 +792,7 @@ function renderAdminKits() {
   body.innerHTML = kits.map(k => {
     const c = kitCalc(k), vis = isKitVisible(k), broken = c.missing.length || c.rows.some(r => r.inactive);
     const st = !k.active ? ['off', 'Inativo'] : broken ? ['red', 'Produto inativo'] : !vis ? ['warn', 'Fora do período'] : c.maxKits === 0 ? ['red', 'Sem estoque'] : ['on', 'Exibindo'];
-    return `<tr><td>${k.image ? `<img class="listThumbWide" src="${esc(k.image)}">` : `<div class="listThumbWide" style="display:flex;align-items:center;justify-content:center;color:#a8452f">✦</div>`}</td><td><b>${esc(k.name)}</b><br><span class="muted">${esc((k.description || '').slice(0, 50))}</span></td><td>${c.rows.reduce((a, r) => a + r.qty, 0)} un. / ${c.rows.length} prod.</td><td>${BRL(c.full)}</td><td>${c.saving > 0 ? c.pct.toFixed(1).replace('.', ',') + '% (' + BRL(c.saving) + ')' : '—'}${k.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}</td><td><b>${BRL(c.price)}</b></td><td>${c.maxKits == null ? '<span class="muted">sem limite</span>' : `<b>${c.maxKits}</b><br><span class="muted">${esc(c.limiting || '')}</span>`}</td><td>${formatPeriod(k.startDate, k.endDate)}</td><td><span class="tag ${st[0]}">${st[1]}</span></td><td class="actionsCell"><button onclick="editKit(${k.id})">Editar / Simular</button><button onclick="duplicateKit(${k.id})">Duplicar</button><button onclick="toggleKit(${k.id})">${k.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteKit(${k.id})">Excluir</button></td></tr>`;
+    return `<tr><td>${k.image ? `<img class="listThumbWide" src="${esc(k.image)}">` : `<div class="listThumbWide" style="display:flex;align-items:center;justify-content:center;color:#a8452f">✦</div>`}</td><td><b>${esc(k.name)}</b><br><span class="muted">${esc((k.description || '').slice(0, 50))}</span></td><td>${c.rows.reduce((a, r) => a + r.qty, 0)} un. / ${c.rows.length} prod.</td><td>${BRL(c.full)}</td><td>${c.saving > 0 ? c.pct.toFixed(1).replace('.', ',') + '% (' + BRL(c.saving) + ')' : '—'}${k.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}<br>${(k.groups || []).length ? (k.groups || []).map(g => `<span class="tag blue" style="margin-top:2px">🔒 ${esc(groupName(g) || '?')}</span>`).join(' ') : '<span class="tag off" style="margin-top:2px">Todos</span>'}</td><td><b>${BRL(c.price)}</b></td><td>${c.maxKits == null ? '<span class="muted">sem limite</span>' : `<b>${c.maxKits}</b><br><span class="muted">${esc(c.limiting || '')}</span>`}</td><td>${formatPeriod(k.startDate, k.endDate)}</td><td><span class="tag ${st[0]}">${st[1]}</span></td><td class="actionsCell"><button onclick="editKit(${k.id})">Editar / Simular</button><button onclick="duplicateKit(${k.id})">Duplicar</button><button onclick="toggleKit(${k.id})">${k.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteKit(${k.id})">Excluir</button></td></tr>`;
   }).join('') || '<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Nenhum kit cadastrado. Clique em "+ Novo kit" para montar o primeiro.</td></tr>';
 }
 
@@ -781,6 +812,10 @@ function kitEditorHtml(k) {
     <label class="checkRow"><input type="checkbox" ${k.active !== false ? 'checked' : ''} onchange="kitDraft.active=this.checked"> Kit ativo (visível no catálogo)</label><br>
     <label class="checkRow"><input type="checkbox" ${k.featured ? 'checked' : ''} onchange="kitDraft.featured=this.checked"> Primeiro da lista de kits</label><br>
     <label class="checkRow"><input type="checkbox" ${k.showAvailable ? 'checked' : ''} onchange="kitDraft.showAvailable=this.checked"> Mostrar ao cliente quantos kits restam</label>
+    <div class="audBox"><label>Disponível para</label>
+     <label class="checkRow"><input type="radio" name="kfAud" ${(k.groups || []).length ? '' : 'checked'} onchange="kitDraft.groups=[];renderKitAudience()"> Todos os clientes</label>
+     <label class="checkRow"><input type="radio" name="kfAud" ${(k.groups || []).length ? 'checked' : ''} onchange="kitDraft.groups=kitDraft.groups.length?kitDraft.groups:[];kitDraft._restrict=true;renderKitAudience()"> Somente grupos de clientes</label>
+     <div id="kfAudGroups"></div></div>
     <div class="field" style="margin-top:12px"><label>URL da imagem do kit (opcional — sem imagem, usa as fotos dos produtos)</label><input id="kfImageUrl" value="${esc(k.image || '')}" placeholder="https://..." oninput="kitDraft.image=normImg(this.value);imgCheck('kfPreview',kitDraft.image)"></div>
     <div id="kfPreview" class="adminImagePreviewLarge" style="height:120px"></div>
     <div class="bannerCfg"><label class="checkRow" style="font-weight:800"><input id="kfBanner" type="checkbox" ${k.banner ? 'checked' : ''} onchange="kitDraft.banner=this.checked;$('kfBannerFields').classList.toggle('hidden',!this.checked);renderBannerPreview()"> ★ Destacar na tela principal (banner de campanha)</label>
@@ -803,7 +838,16 @@ function kitEditorHtml(k) {
   <div id="kfError" class="error hidden"></div>
   <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveKit()">Salvar kit</button></div>`;
 }
-function openKitEditor(k, title) { kitDraft = JSON.parse(JSON.stringify(k)); kitDraft.items = kitDraft.items || []; showModal(title, kitEditorHtml(kitDraft), true); imgCheck('kfPreview', kitDraft.image); updateKitSim(); }
+function renderKitAudience() {
+  const el = $('kfAudGroups'); if (!el || !kitDraft) return;
+  const restrict = document.querySelectorAll('input[name=kfAud]')[1]?.checked;
+  if (!restrict) { el.innerHTML = '<span class="small muted">Todos os clientes com acesso ativo veem este kit.</span>'; return; }
+  const gs = groups();
+  el.innerHTML = gs.length ? gs.map(g => `<label class="checkRow audG"><input type="checkbox" ${kitDraft.groups.map(Number).includes(g.id) ? 'checked' : ''} onchange="toggleKitGroup(${g.id},this.checked)"> ${esc(g.name)} <span class="muted">(${clients.filter(c => Number(c.groupId) === g.id).length} cliente(s))</span></label>`).join('') + '<div class="small muted">Só os clientes desses grupos veem e podem pedir este kit.</div>'
+    : '<span class="small" style="color:#a34b44">Nenhum grupo cadastrado. Crie em Clientes / Tokens → Grupos de clientes.</span>';
+}
+function toggleKitGroup(id, on) { const s = new Set(kitDraft.groups.map(Number)); on ? s.add(id) : s.delete(id); kitDraft.groups = [...s]; }
+function openKitEditor(k, title) { kitDraft = JSON.parse(JSON.stringify(k)); kitDraft.items = kitDraft.items || []; kitDraft.groups = (kitDraft.groups || []).map(Number); showModal(title, kitEditorHtml(kitDraft), true); imgCheck('kfPreview', kitDraft.image); renderKitAudience(); updateKitSim(); }
 function newKit() { openKitEditor({ active: true, featured: false, showAvailable: false, discountType: 'percent', discount: 10, order: (data.kits || []).length + 1, items: [], bannerButton: 'Quero essa oportunidade' }, 'Novo kit promocional'); }
 function editKit(id) { openKitEditor(data.kits.find(x => x.id === id), 'Editar kit promocional'); }
 function duplicateKit(id) { const k = JSON.parse(JSON.stringify(data.kits.find(x => x.id === id))); delete k.id; k.name = k.name + ' (cópia)'; k.active = false; k.banner = false; openKitEditor(k, 'Novo kit (cópia)'); }
@@ -899,7 +943,8 @@ function saveKit() {
   k.simQty = Math.max(1, parseInt($('kfSimQty').value) || 1);
   const c = kitCalc(k);
   c.rows.forEach(r => { const it = k.items.find(i => Number(i.productId) === r.p.id); if (it) it.promoPrice = r.promo; });
-  const msg = !k.name ? 'Informe o nome do kit.' : !k.items.length ? 'Inclua ao menos um produto no kit.' : (k.discountType === 'percent' && k.discount > 100) ? 'O desconto percentual não pode passar de 100%.' : (k.discountType === 'value' && k.discount > c.full) ? 'O desconto não pode ser maior que o valor cheio do kit.' : (k.discountType === 'target' && k.discount > c.full) ? 'O preço final não pode ser maior que o valor cheio (' + BRL(c.full) + ').' : (k.startDate && k.endDate && k.endDate < k.startDate) ? 'A data final é anterior à inicial.' : '';
+  const restrictAud = document.querySelectorAll('input[name=kfAud]')[1]?.checked; if (!restrictAud) k.groups = []; delete k._restrict;
+  const msg = !k.name ? 'Informe o nome do kit.' : !k.items.length ? 'Inclua ao menos um produto no kit.' : (restrictAud && !k.groups.length) ? 'Marque ao menos um grupo de clientes (ou escolha "Todos os clientes").' : (k.discountType === 'percent' && k.discount > 100) ? 'O desconto percentual não pode passar de 100%.' : (k.discountType === 'value' && k.discount > c.full) ? 'O desconto não pode ser maior que o valor cheio do kit.' : (k.discountType === 'target' && k.discount > c.full) ? 'O preço final não pode ser maior que o valor cheio (' + BRL(c.full) + ').' : (k.startDate && k.endDate && k.endDate < k.startDate) ? 'A data final é anterior à inicial.' : '';
   if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
   data.kits = data.kits || [];
   if (k.id) Object.assign(data.kits.find(x => x.id === k.id), k); else { k.id = nextId(data.kits); data.kits.push(k); }
@@ -1068,23 +1113,23 @@ function applyCsvPlan() {
 }
 
 /* ---------------------------------------------------------------- kits: CSV (uma linha por item do kit) */
-const KIT_CSV_HEAD = ['Kit', 'Descrição', 'Condição', 'Valor', 'Código produto', 'Qtd por kit', 'Preço promo item', 'Início', 'Fim', 'Limite kits', 'Ativo', 'Banner', 'Selo banner', 'Título banner', 'Subtítulo banner', 'Botão banner', 'URL imagem kit', 'URL imagem banner'];
+const KIT_CSV_HEAD = ['Kit', 'Grupos', 'Descrição', 'Condição', 'Valor', 'Código produto', 'Qtd por kit', 'Preço promo item', 'Início', 'Fim', 'Limite kits', 'Ativo', 'Banner', 'Selo banner', 'Título banner', 'Subtítulo banner', 'Botão banner', 'URL imagem kit', 'URL imagem banner'];
 const KIT_MODE_CSV = { percent: '%', value: 'R$', target: 'Preço final', manual: 'Manual' };
 function brDate(ymd) { return ymd ? ymd.split('-').reverse().join('/') : ''; }
 function kitCsvModel() {
   const r = (a) => a.map(csvCell).join(';');
   const lines = [KIT_CSV_HEAD.join(';'),
-    r(['Mesa Posta', 'Kit completo para mesa posta', 'Preço final', '360,00', '0000195', '12', '', '01/11/2026', '30/11/2026', '50', 'Sim', 'Sim', 'Black Friday 2026', 'Kit Mesa Posta', '12 pratos rasos + 12 pratos de sobremesa', 'Quero essa oportunidade', '', 'https://seusite.com.br/banner-mesa-posta.jpg']),
-    r(['Mesa Posta', '', '', '', '0000196', '12', '', '', '', '', '', '', '', '', '', '', '', '']),
-    r(['Café da Manhã Ribbon', 'Xícaras e pratos Blue Ribbon', '%', '15', '0000199', '2', '', '', '', '', 'Sim', 'Não', '', '', '', '', '', '']),
-    r(['Café da Manhã Ribbon', '', '', '', '0000201', '1', '', '', '', '', '', '', '', '', '', '', '', ''])];
+    r(['Mesa Posta', 'Todos', 'Kit completo para mesa posta', 'Preço final', '360,00', '0000195', '12', '', '01/11/2026', '30/11/2026', '50', 'Sim', 'Sim', 'Black Friday 2026', 'Kit Mesa Posta', '12 pratos rasos + 12 pratos de sobremesa', 'Quero essa oportunidade', '', 'https://seusite.com.br/banner-mesa-posta.jpg']),
+    r(['Mesa Posta', '', '', '', '', '0000196', '12', '', '', '', '', '', '', '', '', '', '', '', '']),
+    r(['Café da Manhã Ribbon', 'Grupo A', 'Xícaras e pratos Blue Ribbon', '%', '15', '0000199', '2', '', '', '', '', 'Sim', 'Não', '', '', '', '', '', '']),
+    r(['Café da Manhã Ribbon', '', '', '', '', '0000201', '1', '', '', '', '', '', '', '', '', '', '', '', ''])];
   downloadText('modelo_kits_zionne.csv', lines.join('\r\n'));
 }
 function exportKitsCsv() {
   const byId = new Map(data.products.map(p => [p.id, p])), out = [KIT_CSV_HEAD.join(';')];
   (data.kits || []).forEach(k => (k.items || []).forEach((it, i) => {
     const p = byId.get(Number(it.productId)), first = i === 0;
-    out.push([k.name, first ? k.description || '' : '', first ? KIT_MODE_CSV[k.discountType || 'percent'] : '', first && k.discountType !== 'manual' ? brNum(k.discount) : '', p?.sku || '', it.qty, k.discountType === 'manual' ? brNum(it.promoPrice) : '',
+    out.push([k.name, first ? ((k.groups || []).length ? k.groups.map(groupName).filter(Boolean).join(', ') : 'Todos') : '', first ? k.description || '' : '', first ? KIT_MODE_CSV[k.discountType || 'percent'] : '', first && k.discountType !== 'manual' ? brNum(k.discount) : '', p?.sku || '', it.qty, k.discountType === 'manual' ? brNum(it.promoPrice) : '',
       first ? brDate(k.startDate) : '', first ? brDate(k.endDate) : '', first ? k.maxKits || '' : '', first ? (k.active ? 'Sim' : 'Não') : '', first ? (k.banner ? 'Sim' : 'Não') : '',
       first ? k.bannerTag || '' : '', first ? k.bannerTitle || '' : '', first ? k.bannerSubtitle || '' : '', first ? k.bannerButton || '' : '', first && k.image && !k.image.startsWith('/img/') ? k.image : '', first ? k.bannerImage || '' : ''].map(csvCell).join(';'));
   }));
@@ -1092,7 +1137,7 @@ function exportKitsCsv() {
 }
 function kitHeadKey(h) {
   h = h.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
-  const map = { kit: 'kit', nomedokit: 'kit', descricao: 'desc', condicao: 'mode', condicaoespecial: 'mode', tipodedesconto: 'mode', valor: 'value', desconto: 'value',
+  const map = { kit: 'kit', nomedokit: 'kit', grupos: 'groups', grupo: 'groups', disponivelpara: 'groups', descricao: 'desc', condicao: 'mode', condicaoespecial: 'mode', tipodedesconto: 'mode', valor: 'value', desconto: 'value',
     codigoproduto: 'sku', codigo: 'sku', produto: 'sku', sku: 'sku', qtdporkit: 'qty', qtd: 'qty', quantidade: 'qty', qtdkit: 'qty', precopromoitem: 'promo', precopromo: 'promo', precopromocional: 'promo',
     inicio: 'start', iniciodacampanha: 'start', fim: 'end', fimdacampanha: 'end', limitekits: 'max', limite: 'max', ativo: 'active', banner: 'banner', destaque: 'banner',
     selobanner: 'tag', selo: 'tag', titulobanner: 'btitle', subtitulobanner: 'bsub', botaobanner: 'bbtn', botao: 'bbtn', urlimagemkit: 'image', imagemkit: 'image', urlimagembanner: 'bimage', imagembanner: 'bimage' };
@@ -1154,10 +1199,12 @@ function buildKitCsvPlan(text) {
     const maxRaw = first('max'), max = maxRaw === '' ? (cur?.maxKits ?? '') : parseIntBR(maxRaw);
     if (Number.isNaN(max)) errs.push('limite inválido');
     const act = parseYes(first('active')), ban = parseYes(first('banner'));
+    let kgroups = cur?.groups || []; const gRaw = first('groups');
+    if (gRaw) { if (/^tod[oa]s?$/i.test(gRaw.trim())) kgroups = []; else { kgroups = []; gRaw.split(/[,;|]/).map(x => x.trim()).filter(Boolean).forEach(n => { const g = (data.groups || []).find(x => x.name.toLowerCase() === n.toLowerCase()); g ? kgroups.push(g.id) : errs.push(`grupo "${n}" não cadastrado`); }); } }
     const next = {
       ...(cur ? JSON.parse(JSON.stringify(cur)) : { featured: false, showAvailable: false, order: (data.kits || []).length + plan.filter(x => !x.cur).length + 1 }),
       name: g.name, description: first('desc') || cur?.description || '', discountType: mode, discount: mode === 'manual' ? 0 : val,
-      items, startDate: start, endDate: end, maxKits: max ?? '', active: act ?? cur?.active ?? true, banner: ban ?? cur?.banner ?? false,
+      items, groups: kgroups, startDate: start, endDate: end, maxKits: max ?? '', active: act ?? cur?.active ?? true, banner: ban ?? cur?.banner ?? false,
       bannerTag: first('tag') || cur?.bannerTag || '', bannerTitle: first('btitle') || cur?.bannerTitle || '', bannerSubtitle: first('bsub') || cur?.bannerSubtitle || '',
       bannerButton: first('bbtn') || cur?.bannerButton || 'Quero essa oportunidade', image: first('image') ? normImg(first('image')) : (cur?.image || ''), bannerImage: first('bimage') ? normImg(first('bimage')) : (cur?.bannerImage || '')
     };
@@ -1175,7 +1222,7 @@ function showKitCsvPreview() {
   const plan = kitCsvPlan, cnt = s => plan.filter(x => x.status === s).length, ok = cnt('novo') + cnt('alterado');
   showModal('Importar kits — conferência', `<div class="csvSummary"><span class="tag on">${cnt('novo')} novos</span><span class="tag blue">${cnt('alterado')} atualizados</span>${cnt('erro') ? `<span class="tag red">${cnt('erro')} com erro (serão ignorados)</span>` : ''}</div>
   <p class="small muted">Os kits são identificados pelo nome: se já existe, a composição é substituída pela do arquivo. Campos em branco mantêm o valor atual. Os preços promocionais por item são calculados pela condição informada.</p>
-  <div class="tableWrap" style="max-height:52vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Kit</th><th>Composição (preço promocional)</th><th>Condição</th><th>Preço cheio</th><th>Preço do kit</th><th>Kits possíveis</th><th>Período</th><th>Situação</th></tr></thead><tbody>${plan.map(x => { const c = x.calc, n = x.next; return `<tr class="${x.status}"><td><b>${esc(n.name)}</b>${n.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}${n.active ? '' : '<br><span class="tag off">Inativo</span>'}</td><td style="min-width:260px">${c ? c.rows.map(r => `<div class="kitCsvItem">${r.p.image ? `<img src="${esc(r.p.image)}" onerror="this.style.visibility='hidden'">` : '<span></span>'}<span><b>${r.qty}×</b> ${esc(r.p.sku)} ${esc(r.p.name)}</span><span>${BRL(r.promo)} <s>${BRL(r.price)}</s></span></div>`).join('') : '—'}</td><td>${n.discountType === 'manual' ? 'Manual por item' : n.discountType === 'target' ? 'Preço final ' + BRL(n.discount) : n.discountType === 'value' ? '− ' + BRL(n.discount) : '− ' + String(n.discount).replace('.', ',') + '%'}</td><td>${c ? BRL(c.full) : '—'}</td><td><b>${c ? BRL(c.price) : '—'}</b>${c && c.saving > 0 ? `<br><span class="small muted">− ${c.pct.toFixed(1).replace('.', ',')}%</span>` : ''}</td><td>${!c ? '—' : c.maxKits == null ? '<span class="muted">sem limite</span>' : c.maxKits}</td><td>${formatPeriod(n.startDate, n.endDate)}</td><td>${x.status === 'erro' ? `<span class="tag red" style="white-space:normal">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : '<span class="tag blue">Atualizar</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+  <div class="tableWrap" style="max-height:52vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Kit</th><th>Composição (preço promocional)</th><th>Condição</th><th>Preço cheio</th><th>Preço do kit</th><th>Kits possíveis</th><th>Período</th><th>Situação</th></tr></thead><tbody>${plan.map(x => { const c = x.calc, n = x.next; return `<tr class="${x.status}"><td><b>${esc(n.name)}</b><br>${(n.groups || []).length ? n.groups.map(g => `<span class="tag blue">🔒 ${esc(groupName(g) || '?')}</span>`).join(' ') : '<span class="tag off">Todos</span>'}${n.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}${n.active ? '' : '<br><span class="tag off">Inativo</span>'}</td><td style="min-width:260px">${c ? c.rows.map(r => `<div class="kitCsvItem">${r.p.image ? `<img src="${esc(r.p.image)}" onerror="this.style.visibility='hidden'">` : '<span></span>'}<span><b>${r.qty}×</b> ${esc(r.p.sku)} ${esc(r.p.name)}</span><span>${BRL(r.promo)} <s>${BRL(r.price)}</s></span></div>`).join('') : '—'}</td><td>${n.discountType === 'manual' ? 'Manual por item' : n.discountType === 'target' ? 'Preço final ' + BRL(n.discount) : n.discountType === 'value' ? '− ' + BRL(n.discount) : '− ' + String(n.discount).replace('.', ',') + '%'}</td><td>${c ? BRL(c.full) : '—'}</td><td><b>${c ? BRL(c.price) : '—'}</b>${c && c.saving > 0 ? `<br><span class="small muted">− ${c.pct.toFixed(1).replace('.', ',')}%</span>` : ''}</td><td>${!c ? '—' : c.maxKits == null ? '<span class="muted">sem limite</span>' : c.maxKits}</td><td>${formatPeriod(n.startDate, n.endDate)}</td><td>${x.status === 'erro' ? `<span class="tag red" style="white-space:normal">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : '<span class="tag blue">Atualizar</span>'}</td></tr>`; }).join('')}</tbody></table></div>
   <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="applyKitCsvPlan()" ${ok ? '' : 'disabled'}>Importar ${ok} kit(s)</button></div>`, true);
 }
 function applyKitCsvPlan() {

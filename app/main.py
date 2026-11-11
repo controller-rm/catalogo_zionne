@@ -303,7 +303,7 @@ def catalog(c=Depends(require_client)):
     prods = {p["id"]: p for p in ct["products"]}
     kits = []
     for k in sorted(ct.get("kits", []), key=lambda x: (not x.get("featured"), x.get("order") or 0)):
-        if not visible_kit(k):
+        if not visible_kit(k) or not kit_for_client(k, c):
             continue
         calc = kit_calc(k, prods)
         if not calc:
@@ -336,6 +336,11 @@ def stock_of(p):
         return max(0, int(float(v)))
     except (TypeError, ValueError):
         return None
+
+def kit_for_client(k, c):
+    """Kit sem grupos = todos os clientes; com grupos = só clientes desses grupos."""
+    gs = [int(g) for g in (k.get("groups") or []) if str(g).isdigit()]
+    return not gs or (c is not None and str(c.get("groupId") or "").isdigit() and int(c["groupId"]) in gs)
 
 def visible_kit(k):
     t = date.today().isoformat()
@@ -404,7 +409,7 @@ async def create_order(req: Request, c=Depends(require_client)):
     for it in b.get("items", []):
         if it.get("kitId"):
             k = kits.get(int(it["kitId"]))
-            calc = kit_calc(k, all_prods) if k and visible_kit(k) else None
+            calc = kit_calc(k, all_prods) if k and visible_kit(k) and kit_for_client(k, c) else None
             if not calc:
                 raise HTTPException(400, "Um kit do seu pedido não está mais disponível. Remova-o do carrinho.")
             q = max(1, int(it.get("qty") or 1))

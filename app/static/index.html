@@ -598,6 +598,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 .kitComp input{width:62px;border:1px solid var(--line);border-radius:6px;padding:5px;text-align:center}
 .kitComp td.lim{color:#a8452f;font-weight:800}
 .kitPicker{display:grid;grid-template-columns:1fr 70px auto;gap:6px;margin-bottom:10px}
+.audBox{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8faf6}.audBox>label:first-child{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#5d655e;margin-bottom:6px}.audBox .checkRow{display:flex;align-items:center;gap:6px;margin:3px 0}#kfAudGroups{margin:6px 0 0 20px}
 .kitPicker2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}.kitPicker2 select,.kitPicker2 input{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;min-width:0}
 #kfProd option.inKit{background:#e7f2e2;color:#1f5f2e;font-weight:700}
 .kitPicker input,.kitPicker select{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;min-width:0}
@@ -671,7 +672,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 </section>
 
 <div id="appView" class="hidden">
-<div id="previewBar" class="previewBar hidden">👁 Você está vendo o catálogo como pré-visualização do administrador. Pedidos não são enviados neste modo.<button class="btn" onclick="openAdmin()">Voltar ao painel</button></div>
+<div id="previewBar" class="previewBar hidden">👁 Pré-visualização do administrador (pedidos não são enviados). Ver como: <select id="previewGroupSel" onchange="setPreviewGroup(this.value)" style="border:1px solid #e0cf9f;border-radius:6px;padding:4px 6px;font-size:11px"></select><button class="btn" onclick="openAdmin()">Voltar ao painel</button></div>
 <header class="topbar">
  <div class="brand" id="brandClick"><img src="/static/img/logo.png"></div>
  <div class="topsearch"><input id="topSearch" placeholder="Buscar produto, coleção ou código..." oninput="syncSearch(this.value)"><span>⌕</span></div>
@@ -830,7 +831,8 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
      <div id="tgResultWrap" class="hidden" style="margin-top:12px"><div id="tgResult" class="generatedTokenV9"></div>
      <div class="tokenActions"><button class="btn" onclick="copyText(lastGeneratedToken,'Token copiado')">Copiar token</button><button class="btn" onclick="useGeneratedTokenInClient()">Criar acesso com este token</button></div></div>
     </div>
-    <div class="panel"><div class="controls"><input id="adminClientSearch" placeholder="Pesquisar cliente ou CNPJ..." oninput="renderClients()"></div><div class="tableWrap"><table class="adminTable"><thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Token</th><th>Validade</th><th>Tabela</th><th>Status</th><th>Ações</th></tr></thead><tbody id="clientsBody"></tbody></table></div></div>
+    <div class="panel"><div class="panelTitle"><h3>Grupos de clientes</h3><button class="btn primary" onclick="newGroup()">+ Novo grupo</button></div><p class="small muted">Agrupe clientes para oferecer kits exclusivos (ex.: condições diferenciadas por poder de compra). Kits marcados como "Todos" continuam aparecendo para todos.</p><div class="tableWrap"><table class="adminTable"><thead><tr><th>Grupo</th><th>Clientes</th><th>Kits exclusivos</th><th>Ações</th></tr></thead><tbody id="groupsBody"></tbody></table></div></div>
+    <div class="panel"><div class="controls"><input id="adminClientSearch" placeholder="Pesquisar cliente ou CNPJ..." oninput="renderClients()"><select id="adminClientGroup" onchange="renderClients()"></select></div><div class="tableWrap"><table class="adminTable"><thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Token</th><th>Validade</th><th>Grupo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="clientsBody"></tbody></table></div></div>
    </section>
 
    <section id="settingsAdmin" class="adminSection">
