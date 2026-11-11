@@ -961,6 +961,126 @@ function applyCsvPlan() {
   saveData(`Importação concluída: ${nNew} novo(s), ${nUpd} alterado(s)${newCols.length ? `, ${newCols.length} coleção(ões) criada(s)` : ''}`);
 }
 
+/* ---------------------------------------------------------------- kits: CSV (uma linha por item do kit) */
+const KIT_CSV_HEAD = ['Kit', 'Descrição', 'Condição', 'Valor', 'Código produto', 'Qtd por kit', 'Preço promo item', 'Início', 'Fim', 'Limite kits', 'Ativo', 'Banner', 'Selo banner', 'Título banner', 'Subtítulo banner', 'Botão banner', 'URL imagem kit', 'URL imagem banner'];
+const KIT_MODE_CSV = { percent: '%', value: 'R$', target: 'Preço final', manual: 'Manual' };
+function brDate(ymd) { return ymd ? ymd.split('-').reverse().join('/') : ''; }
+function kitCsvModel() {
+  const r = (a) => a.map(csvCell).join(';');
+  const lines = [KIT_CSV_HEAD.join(';'),
+    r(['Mesa Posta', 'Kit completo para mesa posta', 'Preço final', '360,00', '0000195', '12', '', '01/11/2026', '30/11/2026', '50', 'Sim', 'Sim', 'Black Friday 2026', 'Kit Mesa Posta', '12 pratos rasos + 12 pratos de sobremesa', 'Quero essa oportunidade', '', 'https://seusite.com.br/banner-mesa-posta.jpg']),
+    r(['Mesa Posta', '', '', '', '0000196', '12', '', '', '', '', '', '', '', '', '', '', '', '']),
+    r(['Café da Manhã Ribbon', 'Xícaras e pratos Blue Ribbon', '%', '15', '0000199', '2', '', '', '', '', 'Sim', 'Não', '', '', '', '', '', '']),
+    r(['Café da Manhã Ribbon', '', '', '', '0000201', '1', '', '', '', '', '', '', '', '', '', '', '', ''])];
+  downloadText('modelo_kits_zionne.csv', lines.join('\r\n'));
+}
+function exportKitsCsv() {
+  const byId = new Map(data.products.map(p => [p.id, p])), out = [KIT_CSV_HEAD.join(';')];
+  (data.kits || []).forEach(k => (k.items || []).forEach((it, i) => {
+    const p = byId.get(Number(it.productId)), first = i === 0;
+    out.push([k.name, first ? k.description || '' : '', first ? KIT_MODE_CSV[k.discountType || 'percent'] : '', first && k.discountType !== 'manual' ? brNum(k.discount) : '', p?.sku || '', it.qty, k.discountType === 'manual' ? brNum(it.promoPrice) : '',
+      first ? brDate(k.startDate) : '', first ? brDate(k.endDate) : '', first ? k.maxKits || '' : '', first ? (k.active ? 'Sim' : 'Não') : '', first ? (k.banner ? 'Sim' : 'Não') : '',
+      first ? k.bannerTag || '' : '', first ? k.bannerTitle || '' : '', first ? k.bannerSubtitle || '' : '', first ? k.bannerButton || '' : '', first && k.image && !k.image.startsWith('/img/') ? k.image : '', first ? k.bannerImage || '' : ''].map(csvCell).join(';'));
+  }));
+  downloadText('kits_zionne_' + todayYMD() + '.csv', out.join('\r\n'));
+}
+function kitHeadKey(h) {
+  h = h.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const map = { kit: 'kit', nomedokit: 'kit', descricao: 'desc', condicao: 'mode', condicaoespecial: 'mode', tipodedesconto: 'mode', valor: 'value', desconto: 'value',
+    codigoproduto: 'sku', codigo: 'sku', produto: 'sku', sku: 'sku', qtdporkit: 'qty', qtd: 'qty', quantidade: 'qty', qtdkit: 'qty', precopromoitem: 'promo', precopromo: 'promo', precopromocional: 'promo',
+    inicio: 'start', iniciodacampanha: 'start', fim: 'end', fimdacampanha: 'end', limitekits: 'max', limite: 'max', ativo: 'active', banner: 'banner', destaque: 'banner',
+    selobanner: 'tag', selo: 'tag', titulobanner: 'btitle', subtitulobanner: 'bsub', botaobanner: 'bbtn', botao: 'bbtn', urlimagemkit: 'image', imagemkit: 'image', urlimagembanner: 'bimage', imagembanner: 'bimage' };
+  return map[h] || null;
+}
+function parseMode(v) {
+  v = (v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  if (!v) return null;
+  if (v === '%' || v.startsWith('percent') || v === 'desconto %' || v === 'desconto (%)') return 'percent';
+  if (v === 'r$' || v.startsWith('valor') || v.startsWith('desconto r$') || v === 'desconto (r$)') return 'value';
+  if (v.includes('final') || v === 'preco' || v === 'target') return 'target';
+  if (v.startsWith('manual')) return 'manual';
+  return 'invalid';
+}
+function parseDateBR(v) { v = (v || '').trim(); if (!v) return ''; let m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; m = v.match(/^\d{4}-\d{2}-\d{2}$/); return m ? v : 'invalid'; }
+function parseYes(v) { v = (v || '').trim().toLowerCase(); if (!v) return null; return ['sim', 's', 'yes', 'y', '1', 'x', 'true', 'verdadeiro'].includes(v); }
+let kitCsvPlan = null;
+function importKitsCsv(e) {
+  const f = e.target.files?.[0]; if (!f) return; e.target.value = '';
+  const r = new FileReader();
+  r.onload = () => { if (r.result.includes('�')) { const r2 = new FileReader(); r2.onload = () => buildKitCsvPlan(r2.result); r2.readAsText(f, 'windows-1252'); } else buildKitCsvPlan(r.result); };
+  r.readAsText(f, 'utf-8');
+}
+function buildKitCsvPlan(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return toast('CSV vazio ou sem linhas de kit.');
+  const keys = rows[0].map(kitHeadKey);
+  if (!keys.includes('kit') || !keys.includes('sku')) return alert('O cabeçalho precisa ter as colunas "Kit" e "Código produto".\nUse "Baixar modelo CSV" para ver o formato.');
+  const bySku = new Map(data.products.map(p => [String(p.sku).trim(), p])), groups = new Map();
+  rows.slice(1).forEach((r, i) => {
+    const o = { line: i + 2 }; keys.forEach((k, j) => { if (k) o[k] = (r[j] ?? '').trim(); });
+    if (!o.kit) return;
+    const key = o.kit.toLowerCase();
+    if (!groups.has(key)) groups.set(key, { name: o.kit, rows: [] });
+    groups.get(key).rows.push(o);
+  });
+  const plan = [];
+  groups.forEach(g => {
+    const errs = [], first = f => g.rows.map(r => r[f]).find(v => v !== undefined && v !== '') ?? '';
+    const cur = (data.kits || []).find(k => k.name.trim().toLowerCase() === g.name.toLowerCase());
+    const items = [];
+    g.rows.forEach(r => {
+      const p = bySku.get(String(r.sku || '').trim()), q = parseIntBR(r.qty);
+      if (!r.sku) return errs.push(`linha ${r.line}: sem código do produto`);
+      if (!p) return errs.push(`linha ${r.line}: produto ${r.sku} não cadastrado`);
+      if (!p.active) errs.push(`linha ${r.line}: produto ${r.sku} está fora de linha`);
+      if (Number.isNaN(q) || q === 0) return errs.push(`linha ${r.line}: quantidade inválida`);
+      const promo = parseMoney(r.promo);
+      if (Number.isNaN(promo)) errs.push(`linha ${r.line}: preço promo inválido`);
+      const ex = items.find(x => x.productId === p.id);
+      ex ? ex.qty += (q ?? 1) : items.push({ productId: p.id, qty: q ?? 1, promoPrice: promo ?? p.price });
+    });
+    const modeRaw = first('mode'), mode = parseMode(modeRaw) ?? cur?.discountType ?? (g.rows.some(r => r.promo) ? 'manual' : 'percent');
+    if (mode === 'invalid') errs.push(`condição "${modeRaw}" inválida (use %, R$, Preço final ou Manual)`);
+    const valRaw = first('value'), val = valRaw === '' ? (cur?.discount ?? 0) : parseMoney(valRaw);
+    if (Number.isNaN(val)) errs.push('valor inválido');
+    const start = first('start') ? parseDateBR(first('start')) : (cur?.startDate || ''), end = first('end') ? parseDateBR(first('end')) : (cur?.endDate || '');
+    if (start === 'invalid' || end === 'invalid') errs.push('data inválida (use dd/mm/aaaa)');
+    const maxRaw = first('max'), max = maxRaw === '' ? (cur?.maxKits ?? '') : parseIntBR(maxRaw);
+    if (Number.isNaN(max)) errs.push('limite inválido');
+    const act = parseYes(first('active')), ban = parseYes(first('banner'));
+    const next = {
+      ...(cur ? JSON.parse(JSON.stringify(cur)) : { featured: false, showAvailable: false, order: (data.kits || []).length + plan.filter(x => !x.cur).length + 1 }),
+      name: g.name, description: first('desc') || cur?.description || '', discountType: mode, discount: mode === 'manual' ? 0 : val,
+      items, startDate: start, endDate: end, maxKits: max ?? '', active: act ?? cur?.active ?? true, banner: ban ?? cur?.banner ?? false,
+      bannerTag: first('tag') || cur?.bannerTag || '', bannerTitle: first('btitle') || cur?.bannerTitle || '', bannerSubtitle: first('bsub') || cur?.bannerSubtitle || '',
+      bannerButton: first('bbtn') || cur?.bannerButton || 'Quero essa oportunidade', image: first('image') ? normImg(first('image')) : (cur?.image || ''), bannerImage: first('bimage') ? normImg(first('bimage')) : (cur?.bannerImage || '')
+    };
+    if (!items.length) errs.push('nenhum produto válido');
+    const calc = items.length ? kitCalc(next) : null;
+    if (calc && mode === 'percent' && val > 100) errs.push('desconto acima de 100%');
+    if (calc && (mode === 'value' || mode === 'target') && val > calc.full) errs.push(`valor maior que o preço cheio (${BRL(calc.full)})`);
+    if (start && end && start !== 'invalid' && end !== 'invalid' && end < start) errs.push('fim antes do início');
+    if (calc) calc.rows.forEach(r => { const it = next.items.find(i => i.productId === r.p.id); if (it) it.promoPrice = r.promo; });
+    plan.push({ cur, next, calc, errs, status: errs.length ? 'erro' : cur ? 'alterado' : 'novo' });
+  });
+  kitCsvPlan = plan; showKitCsvPreview();
+}
+function showKitCsvPreview() {
+  const plan = kitCsvPlan, cnt = s => plan.filter(x => x.status === s).length, ok = cnt('novo') + cnt('alterado');
+  showModal('Importar kits — conferência', `<div class="csvSummary"><span class="tag on">${cnt('novo')} novos</span><span class="tag blue">${cnt('alterado')} atualizados</span>${cnt('erro') ? `<span class="tag red">${cnt('erro')} com erro (serão ignorados)</span>` : ''}</div>
+  <p class="small muted">Os kits são identificados pelo nome: se já existe, a composição é substituída pela do arquivo. Campos em branco mantêm o valor atual. Os preços promocionais por item são calculados pela condição informada.</p>
+  <div class="tableWrap" style="max-height:52vh;overflow:auto"><table class="adminTable csvTable"><thead><tr><th>Kit</th><th>Composição (preço promocional)</th><th>Condição</th><th>Preço cheio</th><th>Preço do kit</th><th>Kits possíveis</th><th>Período</th><th>Situação</th></tr></thead><tbody>${plan.map(x => { const c = x.calc, n = x.next; return `<tr class="${x.status}"><td><b>${esc(n.name)}</b>${n.banner ? '<br><span class="tag warn">★ Banner</span>' : ''}${n.active ? '' : '<br><span class="tag off">Inativo</span>'}</td><td style="min-width:260px">${c ? c.rows.map(r => `<div class="kitCsvItem">${r.p.image ? `<img src="${esc(r.p.image)}" onerror="this.style.visibility='hidden'">` : '<span></span>'}<span><b>${r.qty}×</b> ${esc(r.p.sku)} ${esc(r.p.name)}</span><span>${BRL(r.promo)} <s>${BRL(r.price)}</s></span></div>`).join('') : '—'}</td><td>${n.discountType === 'manual' ? 'Manual por item' : n.discountType === 'target' ? 'Preço final ' + BRL(n.discount) : n.discountType === 'value' ? '− ' + BRL(n.discount) : '− ' + String(n.discount).replace('.', ',') + '%'}</td><td>${c ? BRL(c.full) : '—'}</td><td><b>${c ? BRL(c.price) : '—'}</b>${c && c.saving > 0 ? `<br><span class="small muted">− ${c.pct.toFixed(1).replace('.', ',')}%</span>` : ''}</td><td>${!c ? '—' : c.maxKits == null ? '<span class="muted">sem limite</span>' : c.maxKits}</td><td>${formatPeriod(n.startDate, n.endDate)}</td><td>${x.status === 'erro' ? `<span class="tag red" style="white-space:normal">${esc(x.errs.join('; '))}</span>` : x.status === 'novo' ? '<span class="tag on">Novo</span>' : '<span class="tag blue">Atualizar</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="applyKitCsvPlan()" ${ok ? '' : 'disabled'}>Importar ${ok} kit(s)</button></div>`, true);
+}
+function applyKitCsvPlan() {
+  data.kits = data.kits || []; let nNew = 0, nUpd = 0;
+  kitCsvPlan.forEach(x => {
+    if (x.status === 'novo') { x.next.id = nextId(data.kits); data.kits.push(x.next); nNew++; }
+    else if (x.status === 'alterado') { Object.assign(x.cur, x.next); nUpd++; }
+  });
+  kitCsvPlan = null; closeModal(); saveData(`Kits importados: ${nNew} novo(s), ${nUpd} atualizado(s)`);
+}
+
 /* ---------------------------------------------------------------- util */
 function showModal(title, body, wide) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; document.querySelector('#modal .modalCard').classList.toggle('wide', !!wide); $('modal').classList.add('on'); }
 function closeModal() { $('modal').classList.remove('on'); }

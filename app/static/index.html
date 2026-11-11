@@ -590,6 +590,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .csvThumb{width:44px;height:44px;border-radius:7px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .csvThumb img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
 .csvTable td{padding:6px 8px}.csvTable tr.erro{background:#fff5f3}.csvTable tr.novo{background:#f5faf1}
+.kitCsvItem{display:grid;grid-template-columns:26px 1fr auto;gap:6px;align-items:center;font-size:10px;padding:2px 0}.kitCsvItem img{width:26px;height:26px;object-fit:contain;border:1px solid var(--line);border-radius:5px;background:#fff}.kitCsvItem s{color:#9a9285;font-size:9px}
 .chg{font-size:10px;color:#7b7468}.chg b{color:#1f5f8b}
 @media(max-width:760px){.kitBanners{grid-template-columns:1fr}.kitBanner,.kitBanners.single .kitBanner{grid-template-columns:1fr;min-height:0}.kbPic{height:190px;order:-1}.kbText:after{display:none}.kbText{padding:20px}}
 @media(max-width:900px){.kitEditor{grid-template-columns:1fr}.simGrid{grid-template-columns:repeat(2,1fr)}}
@@ -724,7 +725,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    </section>
 
    <section id="kitsAdmin" class="adminSection">
-    <div class="adminTitle"><div><h1>Kits promocionais</h1><p>Monte kits com produtos do catálogo, simule quantos kits o estoque permite e aplique desconto de campanha.</p></div><button class="btn primary" onclick="newKit()">+ Novo kit</button></div>
+    <div class="adminTitle"><div><h1>Kits promocionais</h1><p>Monte kits com produtos do catálogo, simule quantos kits o estoque permite e aplique desconto de campanha.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" onclick="kitCsvModel()">Baixar modelo CSV</button><button class="btn" onclick="exportKitsCsv()">Exportar CSV</button><label class="btn">Importar CSV<input type="file" accept=".csv,.txt" style="display:none" onchange="importKitsCsv(event)"></label><button class="btn primary" onclick="newKit()">+ Novo kit</button></div></div>
     <div class="panel"><div class="dateNote">O número de kits possíveis usa o campo <b>Estoque (quantidade)</b> de cada produto. Produtos sem estoque informado não limitam o kit. Opcionalmente defina um limite de kits para a campanha.</div></div>
     <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Kit</th><th>Itens</th><th>Preço cheio</th><th>Desconto</th><th>Preço do kit</th><th>Kits possíveis</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminKitsBody"></tbody></table></div></div>
    </section>
