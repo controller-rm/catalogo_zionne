@@ -1646,13 +1646,14 @@ function albumForm(a) {
 }
 function renderAlbumPhotos() {
   const ph = albumDraft.photos; $('afCount').textContent = `(${ph.length})`;
-  $('afPhotos').innerHTML = ph.map((f, k) => `<div class="afPhoto ${f.cover ? 'cover' : ''}"><img src="${esc(f.url)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'afErr',textContent:'⚠ não carregou'}))"><div class="afCtl"><input value="${esc(f.caption || '')}" placeholder="Legenda (opcional)" oninput="albumDraft.photos[${k}].caption=this.value"><div><button title="Capa" class="${f.cover ? 'on' : ''}" onclick="albumCoverSet(${k})">★</button><button title="Subir" onclick="albumMove(${k},-1)">↑</button><button title="Descer" onclick="albumMove(${k},1)">↓</button><button title="Remover" style="color:#a34b44" onclick="albumDraft.photos.splice(${k},1);renderAlbumPhotos()">×</button></div></div></div>`).join('') || '<div class="mediaEmpty">Nenhuma foto ainda. Cole as URLs ao lado.</div>';
+  $('afPhotos').innerHTML = ph.map((f, k) => `<div class="afPhoto ${f.cover ? 'cover' : ''}"><img src="${esc(f.url)}" loading="lazy" onclick="zoomUrl(this.src)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'afErr',textContent:'⚠ não carregou'}))"><div class="afCtl"><div class="afUrl"><input value="${esc(f.url)}" title="${esc(f.url)}" onchange="albumSetUrl(${k},this.value)" placeholder="URL da foto"><a href="${esc(f.url)}" target="_blank" rel="noopener" title="Abrir o link em nova aba">↗</a></div><input value="${esc(f.caption || '')}" placeholder="Legenda (opcional)" oninput="albumDraft.photos[${k}].caption=this.value"><div><button title="Capa" class="${f.cover ? 'on' : ''}" onclick="albumCoverSet(${k})">★</button><button title="Subir" onclick="albumMove(${k},-1)">↑</button><button title="Descer" onclick="albumMove(${k},1)">↓</button><button title="Remover" style="color:#a34b44" onclick="albumDraft.photos.splice(${k},1);renderAlbumPhotos()">×</button></div></div></div>`).join('') || '<div class="mediaEmpty">Nenhuma foto ainda. Cole as URLs ao lado.</div>';
 }
 function albumAddUrls() {
   const urls = $('afUrls').value.split(/\s+/).map(u => u.trim()).filter(u => /^https?:\/\//i.test(u));
   if (!urls.length) return toast('Cole ao menos uma URL começando com http');
   urls.forEach(u => albumDraft.photos.push({ url: normImg(u), caption: '' })); $('afUrls').value = ''; renderAlbumPhotos(); toast(`${urls.length} foto(s) adicionada(s)`);
 }
+function albumSetUrl(k, v) { v = v.trim(); if (!v) return toast('Informe a URL ou remova a foto'); albumDraft.photos[k].url = normImg(v); renderAlbumPhotos(); }
 function albumCoverSet(k) { albumDraft.photos.forEach((f, i) => f.cover = i === k); renderAlbumPhotos(); }
 function albumMove(k, d) { const ph = albumDraft.photos, j = k + d; if (j < 0 || j >= ph.length) return; [ph[k], ph[j]] = [ph[j], ph[k]]; renderAlbumPhotos(); }
 function newAlbum() { albumDraft = { active: true, order: (data.albums || []).length + 1, photos: [] }; showModal('Novo álbum de mesa posta', albumForm(albumDraft), true); renderAlbumPhotos(); }
