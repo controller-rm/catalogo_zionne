@@ -640,8 +640,8 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 .albumCard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
 .albumCover{position:relative;height:220px;background:#eee8dc}.albumCover img{width:100%;height:100%;object-fit:cover}
 .albumCount{position:absolute;right:10px;bottom:10px;background:rgba(7,40,28,.82);color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:5px 9px}
-.albumStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#fff;height:58px}.albumStrip img{width:100%;height:100%;object-fit:cover}
-.albumBody{padding:13px 15px}.albumBody h3{margin:4px 0;font-family:Georgia,serif;font-weight:500;font-size:20px;color:#0b4b37}.albumBody p{margin:0 0 6px;font-size:11.5px;color:#5d655e;line-height:1.5}
+.albumStrip{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:58px;gap:2px;background:#fff;height:58px;overflow:hidden}.albumStrip img{display:block;width:100%;height:58px;object-fit:cover}
+.albumCover{overflow:hidden}.albumBody{padding:13px 15px;position:relative;background:#fff}.albumBody p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.albumBody h3{margin:4px 0;font-family:Georgia,serif;font-weight:500;font-size:20px;color:#0b4b37}.albumBody p{margin:0 0 6px;font-size:11.5px;color:#5d655e;line-height:1.5}
 .albumViewer{position:fixed;inset:0;z-index:300;background:rgba(6,20,15,.96);display:none;flex-direction:column;color:#fff}
 .albumViewer.on{display:flex}
 .avTop{display:flex;justify-content:space-between;align-items:center;padding:12px 18px}.avTop #avTitle b{font-family:Georgia,serif;font-weight:500;font-size:20px;margin-right:12px}.avTop #avTitle span{font-size:12px;opacity:.7}

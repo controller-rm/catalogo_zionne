@@ -1603,7 +1603,7 @@ function renderAlbums() {
   const list = clientAlbums();
   area.classList.toggle('hidden', !list.length);
   ['sideAlbum', 'topAlbum'].forEach(id => { const e = $(id); if (e) e.style.display = list.length ? '' : 'none'; });
-  $('albumCards').innerHTML = list.map(a => { const n = a.photos.filter(f => f.url).length, prev = a.photos.filter(f => f.url).slice(0, 4); return `<article class="albumCard" onclick="openAlbum(${a.id},0)"><div class="albumCover"><img src="${esc(albumCover(a))}" alt="${esc(a.title)}" loading="lazy"><span class="albumCount">▦ ${n} foto${n > 1 ? 's' : ''}</span></div><div class="albumStrip">${prev.map(f => `<img src="${esc(f.url)}" loading="lazy">`).join('')}</div><div class="albumBody"><div class="kitKicker" style="color:#8a6a2c">Mesa posta${a.collection ? ' • ' + esc(a.collection) : ''}</div><h3>${esc(a.title)}</h3>${a.description ? `<p>${esc(a.description)}</p>` : ''}<span class="link">Abrir álbum →</span></div></article>`; }).join('');
+  $('albumCards').innerHTML = list.map(a => { const n = a.photos.filter(f => f.url).length, prev = n > 1 ? a.photos.filter(f => f.url).slice(0, 4) : []; return `<article class="albumCard" onclick="openAlbum(${a.id},0)"><div class="albumCover"><img src="${esc(albumCover(a))}" alt="${esc(a.title)}" loading="lazy"><span class="albumCount">▦ ${n} foto${n > 1 ? 's' : ''}</span></div>${prev.length ? `<div class="albumStrip">${prev.map(f => `<img src="${esc(f.url)}" loading="lazy">`).join('')}</div>` : ''}<div class="albumBody"><div class="kitKicker" style="color:#8a6a2c">Mesa posta${a.collection ? ' • ' + esc(a.collection) : ''}</div><h3>${esc(a.title)}</h3>${a.description ? `<p>${esc(a.description)}</p>` : ''}<span class="link">Abrir álbum →</span></div></article>`; }).join('');
 }
 let albumView = null;
 function openAlbum(id, idx) {
@@ -1615,7 +1615,7 @@ function drawAlbum() {
   const { a, photos, i } = albumView, f = photos[i];
   $('avTitle').innerHTML = `<b>${esc(a.title)}</b><span>${i + 1} / ${photos.length}</span>`;
   $('avImg').src = f.url; $('avImg').alt = f.caption || a.title;
-  $('avCaption').innerHTML = `${f.caption ? `<div>${esc(f.caption)}</div>` : ''}${a.collection ? `<button class="btn" onclick="closeAlbum();filterCollection('${esc(a.collection).replace(/'/g, "\\'")}')">Ver produtos da coleção ${esc(a.collection)} →</button>` : ''}`;
+  $('avCaption').innerHTML = `${f.caption ? `<div>${esc(f.caption)}</div>` : (i === 0 && a.description ? `<div style="max-width:820px;opacity:.85;font-size:12px;line-height:1.5">${esc(a.description)}</div>` : '')}${a.collection ? `<button class="btn" onclick="closeAlbum();filterCollection('${esc(a.collection).replace(/'/g, "\\'")}')">Ver produtos da coleção ${esc(a.collection)} →</button>` : ''}`;
   $('avThumbs').innerHTML = photos.map((p, k) => `<img src="${esc(p.url)}" class="${k === i ? 'on' : ''}" onclick="albumGo(${k})" loading="lazy">`).join('');
   $('avThumbs').children[i]?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
