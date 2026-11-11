@@ -153,8 +153,9 @@ function openInspiration(id) {
 /* ---------------------------------------------------------------- catálogo */
 function renderFilters() {
   const active = data.collections.filter(c => c.active).sort((a, b) => a.order - b.order);
-  const opts = '<option value="">Todas as coleções</option>' + active.map(c => `<option>${esc(c.name)}</option>`).join('');
-  ['collectionFilter', 'adminProductCollection'].forEach(id => { const el = $(id); if (el) { const old = el.value; el.innerHTML = opts; el.value = old; } });
+  const fill = (id, list, count) => { const el = $(id); if (!el) return; const old = el.value; el.innerHTML = '<option value="">Todas as coleções</option>' + list.map(c => `<option value="${esc(c.name)}">${esc(c.name)}${count ? ` (${data.products.filter(p => p.collection === c.name).length})` : ''}</option>`).join(''); el.value = old; };
+  fill('collectionFilter', active, false);
+  fill('adminProductCollection', data.collections.slice().sort((a, b) => a.name.localeCompare(b.name)), true);
 }
 function filterCollection(name) { $('collectionFilter').value = name || ''; goto('catalog'); renderProducts(); }
 function pVisual(p) {
@@ -444,7 +445,7 @@ function deleteProduct(id) { if (!confirm('Excluir este produto? Para histórico
 
 /* ---------------------------------------------------------------- coleções */
 function renderAdminCollections() {
-  $('adminCollectionsBody').innerHTML = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<tr><td>${c.image ? `<img class="collectionThumb" src="${esc(c.image)}" loading="lazy">` : `<div class="collectionThumbEmpty"></div>`}</td><td>${c.order}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.description || '')}</td><td>${data.products.filter(p => p.collection === c.name).length}</td><td><span class="tag ${c.featured ? 'on' : 'off'}">${c.featured ? 'Sim' : 'Não'}</span></td><td><span class="tag ${c.active ? 'on' : 'off'}">${c.active ? 'Ativa' : 'Inativa'}</span></td><td class="actionsCell"><button onclick="editCollection(${c.id})">Editar</button><button onclick="toggleFeatured(${c.id})">${c.featured ? 'Remover destaque' : 'Destacar'}</button><button onclick="toggleCollection(${c.id})">${c.active ? 'Desativar' : 'Ativar'}</button></td></tr>`).join('');
+  $('adminCollectionsBody').innerHTML = data.collections.slice().sort((a, b) => a.order - b.order).map(c => `<tr><td>${c.image ? `<img class="collectionThumb" src="${esc(c.image)}" loading="lazy">` : `<div class="collectionThumbEmpty"></div>`}</td><td>${c.order}</td><td><b>${esc(c.name)}</b></td><td>${esc(c.description || '')}</td><td>${data.products.filter(p => p.collection === c.name).length}</td><td><span class="tag ${c.featured ? 'on' : 'off'}">${c.featured ? 'Sim' : 'Não'}</span></td><td><span class="tag ${c.active ? 'on' : 'off'}">${c.active ? 'Ativa' : 'Inativa'}</span></td><td class="actionsCell"><button onclick="editCollection(${c.id})">Editar</button><button onclick="toggleFeatured(${c.id})">${c.featured ? 'Remover destaque' : 'Destacar'}</button><button onclick="toggleCollection(${c.id})">${c.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteCollection(${c.id})">Excluir</button></td></tr>`).join('') || '<tr><td colspan="8" class="muted" style="text-align:center;padding:20px">Nenhuma coleção cadastrada.</td></tr>';
 }
 let tempCollectionImage = '';
 function collectionForm(c = {}) {
@@ -466,6 +467,40 @@ function saveCollection(id) {
   closeModal(); saveData('Coleção salva e publicada');
 }
 function toggleFeatured(id) { const c = data.collections.find(x => x.id === id); c.featured = !c.featured; saveData('Destaques atualizados'); }
+function deleteCollection(id) {
+  const c = data.collections.find(x => x.id === id); if (!c) return;
+  const prods = data.products.filter(p => p.collection === c.name), others = data.collections.filter(x => x.id !== id).sort((a, b) => a.name.localeCompare(b.name));
+  const ids = new Set(prods.map(p => p.id)), kits = (data.kits || []).filter(k => (k.items || []).some(i => ids.has(Number(i.productId))));
+  if (!prods.length) {
+    if (!confirm(`Excluir a coleção "${c.name}"? Ela não tem produtos.`)) return;
+    return removeCollection(c), saveData('Coleção excluída');
+  }
+  showModal('Excluir coleção — ' + c.name, `<div class="notice">A coleção <b>${esc(c.name)}</b> tem <b>${prods.length} produto(s)</b>. Escolha o que fazer com eles:</div>
+  <div class="tableWrap" style="max-height:28vh;overflow:auto;margin:10px 0"><table class="adminTable"><tbody>${prods.map(p => `<tr><td>${esc(p.sku)}</td><td>${esc(p.name)}</td><td>${BRL(p.price)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="formCard" style="margin-bottom:10px"><b class="small">Mover os produtos para outra coleção</b><div style="display:flex;gap:8px;margin-top:8px"><select id="delColTarget" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px">${others.map(o => `<option value="${esc(o.name)}">${esc(o.name)} (${data.products.filter(p => p.collection === o.name).length})</option>`).join('')}</select><button class="btn primary" ${others.length ? '' : 'disabled'} onclick="deleteCollectionMove(${id})">Mover e excluir</button></div></div>
+  <div class="formCard"><b class="small" style="color:#a34b44">Excluir a coleção e os ${prods.length} produto(s)</b><p class="small muted">Use para remover dados de demonstração. Pedidos já enviados não são afetados.${kits.length ? ` <b style="color:#a34b44">Atenção: ${kits.length} kit(s) usam esses produtos (${esc(kits.map(k => k.name).join(', '))}) e deixarão de aparecer até serem ajustados.</b>` : ''}</p><button class="btn" style="color:#a34b44;border-color:#e2b8b1" onclick="deleteCollectionAll(${id})">Excluir coleção e produtos</button></div>`);
+}
+function removeCollection(c) {
+  data.collections = data.collections.filter(x => x.id !== c.id);
+  data.inspirations.filter(x => x.linkType === 'collection' && x.linkValue === c.name).forEach(x => { x.linkType = 'none'; x.linkValue = ''; });
+}
+function deleteCollectionMove(id) {
+  const c = data.collections.find(x => x.id === id), target = $('delColTarget').value; if (!c || !target) return;
+  const n = data.products.filter(p => p.collection === c.name).map(p => p.collection = target).length;
+  removeCollection(c); closeModal(); saveData(`${n} produto(s) movido(s) para "${target}" e coleção excluída`);
+}
+function deleteCollectionAll(id) {
+  const c = data.collections.find(x => x.id === id); if (!c) return;
+  if (!confirm(`Confirma excluir a coleção "${c.name}" e todos os seus produtos? Esta ação não pode ser desfeita (exceto por um backup exportado).`)) return;
+  const before = data.products.length; data.products = data.products.filter(p => p.collection !== c.name);
+  removeCollection(c); closeModal(); saveData(`Coleção excluída com ${before - data.products.length} produto(s)`);
+}
+function removeEmptyCollections() {
+  const empty = data.collections.filter(c => !data.products.some(p => p.collection === c.name));
+  if (!empty.length) return toast('Nenhuma coleção vazia.');
+  if (!confirm(`Excluir ${empty.length} coleção(ões) sem produtos?\n\n${empty.map(c => '• ' + c.name).join('\n')}`)) return;
+  empty.forEach(removeCollection); saveData(`${empty.length} coleção(ões) vazia(s) excluída(s)`);
+}
 function toggleCollection(id) { const c = data.collections.find(x => x.id === id); c.active = !c.active; saveData(c.active ? 'Coleção ativada' : 'Coleção desativada'); }
 
 /* ---------------------------------------------------------------- avisos */
@@ -932,7 +967,8 @@ function buildCsvPlan(text) {
       minQty: min ?? cur?.minQty ?? 1, packQty: emb ?? cur?.packQty ?? 1,
       image: o.url_imagem ? normImg(o.url_imagem) : (cur?.image || ''), description: o.descricao || cur?.description || 'Porcelana de alto padrão, acabamento refinado e design exclusivo.'
     };
-    if (next.collection && !colNames.has(next.collection.toLowerCase())) newCols.add(next.collection);
+    const exCol = data.collections.find(c => c.name.toLowerCase() === String(next.collection || '').toLowerCase()) || [...newCols].map(n => ({ name: n })).find(c => c.name.toLowerCase() === String(next.collection || '').toLowerCase());
+    if (exCol) next.collection = exCol.name; else if (next.collection) newCols.add(next.collection);
     const changes = cur ? ['name', 'collection', 'price', 'stockQty', 'minQty', 'packQty', 'image', 'description'].filter(k => String(cur[k] ?? '') !== String(next[k] ?? '')) : [];
     plan.push({ line, cur, next, errs, status: errs.length ? 'erro' : !cur ? 'novo' : changes.length ? 'alterado' : 'igual', changes });
   });

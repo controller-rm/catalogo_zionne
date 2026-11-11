@@ -731,7 +731,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
    </section>
 
    <section id="collectionsAdmin" class="adminSection">
-    <div class="adminTitle"><div><h1>Coleções</h1><p>Defina quais coleções aparecem em destaque e sua ordem.</p></div><button class="btn primary" onclick="newCollection()">+ Nova coleção</button></div>
+    <div class="adminTitle"><div><h1>Coleções</h1><p>Defina quais coleções aparecem em destaque e sua ordem.</p></div><div style="display:flex;gap:8px"><button class="btn" onclick="removeEmptyCollections()">Excluir coleções vazias</button><button class="btn primary" onclick="newCollection()">+ Nova coleção</button></div></div>
     <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Ordem</th><th>Coleção</th><th>Descrição</th><th>Produtos</th><th>Destaque</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminCollectionsBody"></tbody></table></div></div>
    </section>
 
