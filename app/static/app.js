@@ -792,7 +792,9 @@ function kitEditorHtml(k) {
      </div></div>
   </div><div>
     <h3 style="font-family:Georgia,serif;font-weight:500;margin:0 0 8px">Produtos do kit</h3>
-    <div class="kitPicker"><select id="kfProd"><option value="">Selecione um produto para incluir…</option>${prodOpts}</select><input id="kfProdQty" type="number" min="1" value="1" title="Quantidade por kit"><button class="btn primary" onclick="addKitItem()">+ Incluir</button></div>
+    <div class="kitPicker2"><select id="kfCol" onchange="refreshKitPicker()"><option value="">Todas as coleções</option>${data.collections.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${data.products.filter(p => p.active && p.collection === c.name).length})</option>`).join('')}</select><input id="kfSearch" placeholder="Buscar produto ou código…" oninput="refreshKitPicker()"></div>
+    <div class="kitPicker"><select id="kfProd"></select><input id="kfProdQty" type="number" min="1" value="1" title="Quantidade por kit"><button class="btn primary" onclick="addKitItem()">+ Incluir</button></div>
+    <div id="kfPickInfo" class="small muted" style="margin:-4px 0 8px"></div>
     <div class="tableWrap"><table class="kitComp"><thead><tr><th>Produto</th><th>Preço un.</th><th>Promo un.</th><th>Qtd./kit</th><th>Subtotal promo</th><th>Margem líq.</th><th>Estoque</th><th>Rende</th><th></th></tr></thead><tbody id="kfItems"></tbody></table></div>
     <div id="kfSim"></div>
     <div id="kfFin"></div>
@@ -821,12 +823,25 @@ function addKitItem() {
   e ? e.qty = Number(e.qty) + q : kitDraft.items.push({ productId: pid, qty: q, promoPrice: data.products.find(p => p.id === pid)?.price });
   $('kfProd').value = ''; $('kfProdQty').value = 1; updateKitSim();
 }
+function refreshKitPicker() {
+  const sel = $('kfProd'); if (!sel || !kitDraft) return;
+  const col = $('kfCol').value, q = ($('kfSearch').value || '').trim().toLowerCase(), keep = sel.value;
+  const inKit = new Map(kitDraft.items.map(i => [Number(i.productId), i.qty]));
+  const list = data.products.filter(p => p.active && (!col || p.collection === col) && (!q || p.name.toLowerCase().includes(q) || String(p.sku).includes(q)))
+    .sort((a, b) => (a.collection || '').localeCompare(b.collection || '') || a.name.localeCompare(b.name));
+  const nIn = list.filter(p => inKit.has(p.id)).length;
+  sel.innerHTML = `<option value="">${list.length ? `Selecione um produto… (${list.length} disponíveis${nIn ? `, ${nIn} já no kit` : ''})` : 'Nenhum produto encontrado'}</option>` +
+    list.map(p => `<option value="${p.id}" ${inKit.has(p.id) ? 'class="inKit"' : ''}>${inKit.has(p.id) ? '✓ ' : '\u2003 '}${esc(p.sku)} — ${esc(p.name)}${col ? '' : ` (${esc(p.collection)})`} • ${BRL(p.price)}${inKit.has(p.id) ? ` — já no kit: ${inKit.get(p.id)} un.` : ''}</option>`).join('');
+  if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+  $('kfPickInfo').innerHTML = kitDraft.items.length ? `✓ = produto já incluído no kit (incluir de novo soma a quantidade). Kit com <b>${kitDraft.items.length}</b> produto(s).` : '';
+}
 function setKitItemQty(pid, v) { const e = kitDraft.items.find(i => Number(i.productId) === pid); if (e) { e.qty = Math.max(1, parseInt(v) || 1); updateKitSim(); } }
 function setKitItemPromo(pid, v) { const e = kitDraft.items.find(i => Number(i.productId) === pid); if (e) { e.promoPrice = Math.max(0, Number(v) || 0); updateKitSim(); } }
 function removeKitItem(pid) { kitDraft.items = kitDraft.items.filter(i => Number(i.productId) !== pid); updateKitSim(); }
 function updateKitSim() {
   if (!kitDraft) return;
   const c = kitCalc(kitDraft), manual = kitDraft.discountType === 'manual';
+  refreshKitPicker();
   if ($('kfDiscWrap')) $('kfDiscWrap').style.visibility = manual ? 'hidden' : 'visible';
   $('kfItems').innerHTML = c.rows.length ? c.rows.map(r => `<tr><td><b>${esc(r.p.name)}</b><br><span class="muted">${esc(r.p.sku)}${r.inactive ? ' • <b style="color:#a8452f">INATIVO</b>' : ''}</span></td><td>${BRL(r.p.price)}</td><td>${manual ? `<input type="number" min="0" step="0.01" value="${r.promo}" style="width:78px" onchange="setKitItemPromo(${r.p.id},this.value)">` : `<b>${BRL(r.promo)}</b>`}</td><td><input type="number" min="1" value="${r.qty}" onchange="setKitItemQty(${r.p.id},this.value)"></td><td>${BRL(r.promo * r.qty)}</td><td>${(() => { const f = finOf(r.p); if (!f.hasCost) return '<span class="muted" title="Sem custo cadastrado">—</span>'; const m = marginAt(f, r.promo), st = finStatus(m, f.lucro, f.lucroMin); return dotF(st) + pctF(m); })()}</td><td>${r.stock == null ? '<span class="muted">—</span>' : r.stock.toLocaleString('pt-BR')}</td><td class="${r.perItem != null && r.p.name === c.limiting ? 'lim' : ''}">${r.perItem == null ? '<span class="muted">∞</span>' : r.perItem + ' kits'}</td><td><button class="link" style="color:#a34b44" onclick="removeKitItem(${r.p.id})">remover</button></td></tr>`).join('')
     : '<tr><td colspan="9" class="muted" style="text-align:center;padding:16px">Inclua os produtos que compõem o kit.</td></tr>';
