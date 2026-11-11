@@ -62,7 +62,7 @@ async function loadCatalog() {
   const r = await api('/api/catalog');
   adminPreview = false;
   me = r.client;
-  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, kits: r.kits || [], settings: r.settings };
+  data = { products: r.products, collections: r.collections, home: r.home, notices: r.notices, inspirations: r.inspirations, kits: r.kits || [], media: r.media || [], settings: r.settings };
   loadCart();
   showApp(me);
   loadMyOrders();
@@ -85,7 +85,7 @@ function showApp(c) {
   $('validTop').textContent = 'Válido até ' + validDate.toLocaleDateString('pt-BR');
   $('partnerClientName').textContent = c?.name || 'Cliente Zionne';
   $('partnerValidity').textContent = validDate.toLocaleDateString('pt-BR');
-  $('partnerPriceTable').textContent = c?.priceTable || 'Padrão';
+  $('partnerPriceTable').textContent = c?.priceTable || ''; $('partnerPriceTable').parentElement.style.display = c?.priceTable && c.priceTable !== '—' ? '' : 'none';
   const days = Math.max(0, Math.ceil((new Date(validity + 'T23:59:59') - today) / 86400000));
   $('partnerDays').textContent = days + ' dias restantes';
   const yearStart = new Date(today.getFullYear(), 0, 1), yearEnd = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
@@ -116,7 +116,7 @@ function renderHome() {
   $('benefits').innerHTML = (h.benefits || []).filter(b => b.active).map(b => `<div class="benefit"><span class="ico">${esc(b.icon)}</span><div><b>${esc(b.title)}</b><span>${esc(b.text)}</span></div></div>`).join('');
   $('footerInstitutional').innerHTML = esc(data.settings.institutional || '').replace(/\n|\\n/g, '<br>');
   $('footerContact').innerHTML = `<b>Atendimento Comercial</b><br>${formatWhats(data.settings.whats)}<br>${esc(data.settings.email || '')}`;
-  renderNotices(); renderInspirations();
+  renderNotices(); renderInspirations(); renderMedia();
 }
 function todayYMD() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 function isNoticeVisible(n) { const t = todayYMD(); return n.active && (!n.startDate || t >= n.startDate) && (!n.endDate || t <= n.endDate); }
@@ -352,7 +352,7 @@ function previewCatalog() {
   loadCart(); showApp(me); myOrders = []; renderMyOrders();
   $('previewGroupSel').innerHTML = '<option value="">Cliente sem grupo</option>' + groups().map(g => `<option value="${g.id}" ${String(previewGroup) === String(g.id) ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
 }
-function refreshAdmin() { data.kits = data.kits || []; data.groups = data.groups || []; renderGroups(); renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
+function refreshAdmin() { data.kits = data.kits || []; data.groups = data.groups || []; data.media = data.media || []; renderAdminMedia(); renderGroups(); renderFilters(); renderAdminProducts(); renderAdminKits(); renderAdminCollections(); renderAdminNotices(); renderAdminInspirations(); renderHomeAdmin(); renderClients(); renderSettings(); renderDashboard(); renderAdminOrders(); }
 function adminTab(id, btn) { document.querySelectorAll('.adminSection').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.adminSide button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); if (id === 'ordersAdmin') loadAdminOrders(); if (id === 'intelAdmin') intelInit(); }
 
 let saving = Promise.resolve();
@@ -1440,6 +1440,87 @@ function intelPrint() {
   <table style="margin-top:12px"><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Preço final</th><th>Subtotal</th><th>Custo</th><th>Lucro líq.</th><th>Margem</th><th>Bonif.</th></tr></thead><tbody>${d.rows.map(r => `<tr><td>${esc(r.it.sku)}</td><td>${esc(r.it.name)}${r.it.kit ? ' (kit)' : ''}</td><td>${r.q}</td><td>${BRL(r.unit)}</td><td>${BRL(r.rev)}</td><td>${BRL(r.cost)}</td><td>${BRL(r.lucro)}</td><td>${pctF(r.m)}</td><td>${intel.bonus[r.it.productId] || ''}</td></tr>`).join('')}</tbody></table></div>`;
   setTimeout(() => window.print(), 150);
 }
+
+/* ================================================================ VÍDEOS / APRESENTAÇÃO */
+/* converte o link em player: YouTube, Vimeo, Google Drive, arquivo de vídeo ou imagem/GIF */
+function mediaEmbed(url, opts = {}) {
+  url = (url || '').trim(); if (!url) return null;
+  let m;
+  if ((m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/))) {
+    const p = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1' });
+    if (opts.autoplay) { p.set('autoplay', '1'); p.set('mute', '1'); p.set('loop', '1'); p.set('playlist', m[1]); }
+    return { kind: 'iframe', src: `https://www.youtube-nocookie.com/embed/${m[1]}?${p}`, label: 'YouTube' };
+  }
+  if ((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/))) return { kind: 'iframe', src: `https://player.vimeo.com/video/${m[1]}${opts.autoplay ? '?autoplay=1&muted=1&loop=1' : ''}`, label: 'Vimeo' };
+  if ((m = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]{20,})/))) return { kind: 'iframe', src: `https://drive.google.com/file/d/${m[1]}/preview`, label: 'Google Drive' };
+  if (/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)) return { kind: 'video', src: url, label: 'Vídeo' };
+  if (/\.(gif|png|jpe?g|webp|avif)(\?|#|$)/i.test(url) || /lh3\.googleusercontent|api\.onedrive\.com|dropbox/.test(url)) return { kind: 'img', src: normImg(url), label: /\.gif/i.test(url) ? 'GIF' : 'Imagem' };
+  return { kind: 'iframe', src: url, label: 'Link' };
+}
+function mediaPlayerHtml(x) {
+  const e = mediaEmbed(x.url, { autoplay: x.autoplay }); if (!e) return '<div class="mediaEmpty">Sem mídia</div>';
+  if (e.kind === 'iframe') return `<iframe src="${esc(e.src)}" title="${esc(x.title || 'Vídeo')}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  if (e.kind === 'video') return `<video src="${esc(e.src)}" ${x.autoplay ? 'autoplay muted loop' : ''} controls playsinline preload="metadata"></video>`;
+  return `<img src="${esc(e.src)}" alt="${esc(x.title || '')}" loading="lazy">`;
+}
+function isMediaVisible(x) { const t = todayYMD(); return x.active && x.url && (!x.startDate || t >= x.startDate) && (!x.endDate || t <= x.endDate); }
+function renderMedia() {
+  const el = $('mediaArea'); if (!el) return;
+  const list = (data.media || []).filter(adminPreview ? isMediaVisible : () => true).sort((a, b) => (a.order || 0) - (b.order || 0));
+  el.classList.toggle('hidden', !list.length);
+  el.innerHTML = list.map(x => `<article class="mediaCard ${x.layout === 'full' ? 'full' : ''}"><div class="mediaPlayer">${mediaPlayerHtml(x)}</div>${x.title || x.description || x.ctaText ? `<div class="mediaText"><div class="kitKicker" style="color:#8a6a2c">${esc(x.kicker || 'Apresentação Zionne')}</div>${x.title ? `<h3>${esc(x.title)}</h3>` : ''}${x.description ? `<p>${esc(x.description)}</p>` : ''}${x.ctaText ? `<button class="btn primary" onclick="mediaCta(${x.id})">${esc(x.ctaText)}</button>` : ''}</div>` : ''}</article>`).join('');
+}
+function mediaCta(id) {
+  const x = (data.media || []).find(m => m.id === id); if (!x) return;
+  if (x.ctaType === 'collection' && x.ctaValue) return filterCollection(x.ctaValue);
+  if (x.ctaType === 'kits') return goto('kitsArea');
+  if (x.ctaType === 'url' && x.ctaValue) return window.open(x.ctaValue, '_blank');
+  goto('catalog');
+}
+
+/* ---------------------------------------------------------------- admin: mídias */
+function renderAdminMedia() {
+  const body = $('adminMediaBody'); if (!body) return;
+  const list = (data.media || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  $('adminMediaCount').textContent = list.filter(isMediaVisible).length;
+  body.innerHTML = list.map(x => { const e = mediaEmbed(x.url); return `<tr><td><div class="mediaThumb">${mediaPlayerHtml({ ...x, autoplay: false })}</div></td><td><b>${esc(x.title || '(sem título)')}</b><br><span class="muted">${esc((x.description || '').slice(0, 60))}</span></td><td>${e ? `<span class="tag blue">${e.label}</span>` : '—'}${x.autoplay ? ' <span class="tag off">auto</span>' : ''}</td><td>${x.layout === 'full' ? 'Largura total' : 'Vídeo + texto'}</td><td>${formatPeriod(x.startDate, x.endDate)}</td><td>${x.order || 1}</td><td><span class="tag ${isMediaVisible(x) ? 'on' : x.active ? 'warn' : 'off'}">${isMediaVisible(x) ? 'Exibindo' : x.active ? 'Fora do período' : 'Inativo'}</span></td><td class="actionsCell"><button onclick="editMedia(${x.id})">Editar</button><button onclick="toggleMedia(${x.id})">${x.active ? 'Desativar' : 'Ativar'}</button><button class="red" onclick="deleteMedia(${x.id})">Excluir</button></td></tr>`; }).join('') || '<tr><td colspan="8" class="muted" style="text-align:center;padding:22px">Nenhum vídeo cadastrado. Clique em "+ Novo vídeo / GIF".</td></tr>';
+}
+let mediaDraft = null;
+function mediaForm(x) {
+  const cols = data.collections.filter(c => c.active).map(c => `<option ${x.ctaValue === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  return `<div class="grid2"><div>
+   <div class="field"><label>Link do vídeo ou GIF</label><input id="mfUrl" value="${esc(x.url || '')}" placeholder="https://youtu.be/...  •  vimeo.com/...  •  drive.google.com/...  •  .mp4  •  .gif" oninput="mediaDraft.url=this.value.trim();mediaPreview()"></div>
+   <p class="small muted" style="margin-top:-6px">Aceita YouTube (inclusive Shorts), Vimeo, Google Drive (arquivo compartilhado como "qualquer pessoa com o link"), arquivo .mp4/.webm ou imagem .gif/.webp.</p>
+   <div class="field"><label>Chamada pequena (acima do título)</label><input id="mfKicker" value="${esc(x.kicker || 'Apresentação Zionne')}"></div>
+   <div class="field"><label>Título</label><input id="mfTitle" value="${esc(x.title || '')}" placeholder="Conheça a nova coleção"></div>
+   <div class="field"><label>Texto</label><textarea id="mfDesc" rows="3">${esc(x.description || '')}</textarea></div>
+   <div class="grid2"><div class="field"><label>Botão (opcional)</label><input id="mfCta" value="${esc(x.ctaText || '')}" placeholder="Ver coleção"></div><div class="field"><label>Ação do botão</label><select id="mfCtaType" onchange="$('mfCtaCol').classList.toggle('hidden',this.value!=='collection');$('mfCtaUrl').classList.toggle('hidden',this.value!=='url')"><option value="catalog" ${!x.ctaType || x.ctaType === 'catalog' ? 'selected' : ''}>Ir para o catálogo</option><option value="collection" ${x.ctaType === 'collection' ? 'selected' : ''}>Abrir uma coleção</option><option value="kits" ${x.ctaType === 'kits' ? 'selected' : ''}>Ir para os kits</option><option value="url" ${x.ctaType === 'url' ? 'selected' : ''}>Abrir link externo</option></select></div></div>
+   <div id="mfCtaCol" class="field ${x.ctaType === 'collection' ? '' : 'hidden'}"><label>Coleção</label><select id="mfCtaColSel">${cols}</select></div>
+   <div id="mfCtaUrl" class="field ${x.ctaType === 'url' ? '' : 'hidden'}"><label>Link</label><input id="mfCtaUrlIn" value="${x.ctaType === 'url' ? esc(x.ctaValue || '') : ''}" placeholder="https://..."></div>
+   <div class="grid2"><div class="field"><label>Início</label><input id="mfStart" type="date" value="${x.startDate || ''}"></div><div class="field"><label>Fim</label><input id="mfEnd" type="date" value="${x.endDate || ''}"></div></div>
+   <div class="grid2"><div class="field"><label>Layout</label><select id="mfLayout" onchange="mediaDraft.layout=this.value;mediaPreview()"><option value="split" ${x.layout !== 'full' ? 'selected' : ''}>Vídeo + texto ao lado</option><option value="full" ${x.layout === 'full' ? 'selected' : ''}>Vídeo em largura total</option></select></div><div class="field"><label>Ordem</label><input id="mfOrder" type="number" value="${x.order || 1}"></div></div>
+   <label class="checkRow"><input id="mfAuto" type="checkbox" ${x.autoplay ? 'checked' : ''} onchange="mediaDraft.autoplay=this.checked;mediaPreview()"> Tocar automaticamente, sem som e em repetição (efeito GIF)</label><br>
+   <label class="checkRow"><input id="mfActive" type="checkbox" ${x.active !== false ? 'checked' : ''}> Exibir na tela inicial</label>
+  </div><div><div class="small muted" style="margin-bottom:6px">Pré-visualização:</div><div id="mfPreview"></div></div></div>
+  <div class="btnRow"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveMedia(${x.id || 0})">Salvar</button></div>`;
+}
+function mediaPreview() {
+  const el = $('mfPreview'); if (!el) return;
+  const e = mediaEmbed(mediaDraft.url);
+  el.innerHTML = e ? `<div class="mediaCard ${mediaDraft.layout === 'full' ? 'full' : ''}" style="grid-template-columns:1fr"><div class="mediaPlayer">${mediaPlayerHtml(mediaDraft)}</div></div><div class="small" style="margin-top:6px;color:#3d7040">✓ Reconhecido como: <b>${e.label}</b>${e.kind === 'iframe' && e.label === 'Link' ? ' — <span style="color:#a56a00">link genérico; se não aparecer, o site não permite ser exibido dentro de outra página</span>' : ''}</div>` : '<div class="mediaEmpty">Cole o link para ver a pré-visualização</div>';
+}
+function newMedia() { mediaDraft = { active: true, layout: 'split', order: (data.media || []).length + 1, kicker: 'Apresentação Zionne' }; showModal('Novo vídeo / GIF de apresentação', mediaForm(mediaDraft), true); mediaPreview(); }
+function editMedia(id) { mediaDraft = JSON.parse(JSON.stringify(data.media.find(x => x.id === id))); showModal('Editar vídeo / GIF', mediaForm(mediaDraft), true); mediaPreview(); }
+function saveMedia(id) {
+  const t = $('mfCtaType').value;
+  const obj = { url: $('mfUrl').value.trim(), kicker: $('mfKicker').value.trim(), title: $('mfTitle').value.trim(), description: $('mfDesc').value.trim(), ctaText: $('mfCta').value.trim(), ctaType: t, ctaValue: t === 'collection' ? $('mfCtaColSel').value : t === 'url' ? $('mfCtaUrlIn').value.trim() : '', startDate: $('mfStart').value, endDate: $('mfEnd').value, layout: $('mfLayout').value, order: Number($('mfOrder').value) || 1, autoplay: $('mfAuto').checked, active: $('mfActive').checked };
+  if (!obj.url) return toast('Informe o link do vídeo ou GIF');
+  data.media = data.media || [];
+  if (id) Object.assign(data.media.find(x => x.id === id), obj); else data.media.push({ id: nextId(data.media), ...obj });
+  closeModal(); saveData('Vídeo publicado na tela inicial');
+}
+function toggleMedia(id) { const x = data.media.find(m => m.id === id); x.active = !x.active; saveData(x.active ? 'Vídeo ativado' : 'Vídeo desativado'); }
+function deleteMedia(id) { if (!confirm('Excluir este vídeo/GIF?')) return; data.media = data.media.filter(x => x.id !== id); saveData('Vídeo excluído'); }
 
 /* ---------------------------------------------------------------- util */
 function showModal(title, body, wide) { $('modalTitle').textContent = title; $('modalBody').innerHTML = body; document.querySelector('#modal .modalCard').classList.toggle('wide', !!wide); $('modal').classList.add('on'); }

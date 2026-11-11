@@ -322,6 +322,7 @@ def catalog(c=Depends(require_client)):
         "home": ct["home"],
         "notices": [n for n in ct.get("notices", []) if visible_notice(n)],
         "inspirations": [x for x in ct.get("inspirations", []) if x.get("active")],
+        "media": sorted([x for x in ct.get("media", []) if visible_media(x)], key=lambda x: x.get("order") or 0),
         "settings": {k: s.get(k) for k in ("whats", "email", "institutional", "payments")},
     }
 
@@ -341,6 +342,10 @@ def kit_for_client(k, c):
     """Kit sem grupos = todos os clientes; com grupos = só clientes desses grupos."""
     gs = [int(g) for g in (k.get("groups") or []) if str(g).isdigit()]
     return not gs or (c is not None and str(c.get("groupId") or "").isdigit() and int(c["groupId"]) in gs)
+
+def visible_media(x):
+    t = date.today().isoformat()
+    return x.get("active") and x.get("url") and (not x.get("startDate") or t >= x["startDate"]) and (not x.get("endDate") or t <= x["endDate"])
 
 def visible_kit(k):
     t = date.today().isoformat()
@@ -524,7 +529,7 @@ async def import_backup(req: Request, _=Depends(require_admin)):
     b = await req.json()
     clients = b.pop("clients", None)
     ct = kv_get("content")
-    for k in ("products", "collections", "home", "notices", "inspirations", "kits"):
+    for k in ("products", "collections", "home", "notices", "inspirations", "kits", "media", "groups"):
         if k in b:
             ct[k] = b[k]
     if isinstance(b.get("settings"), dict):

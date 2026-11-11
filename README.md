@@ -58,6 +58,13 @@ Colunas: `Kit; Grupos; Descrição; Condição; Valor; Código produto; Qtd por 
 - Condição: `%`, `R$`, `Preço final` ou `Manual` (em Manual, use a coluna "Preço promo item").
 - Kit com nome já existente é atualizado e a composição é substituída pela do arquivo.
 
+## Vídeos / Apresentação
+
+Admin → **Vídeos / Apresentação** → "+ Novo vídeo / GIF": cole o link (YouTube, inclusive Shorts e "não listado";
+Vimeo; Google Drive compartilhado; arquivo .mp4/.webm; ou .gif/.webp). Aparece logo abaixo do banner da Home,
+com título, texto e botão opcionais; layout "vídeo + texto" ou "largura total"; opção de tocar automático
+sem som em repetição (efeito GIF); período de exibição. Nada é gravado no banco: o vídeo vem da origem.
+
 ## Inteligência Comercial (somente administrador)
 
 Dados financeiros do produto (nunca enviados ao cliente): **custo líquido** e os percentuais

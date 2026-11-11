@@ -617,6 +617,21 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
 .cartItem .kitTag{display:inline-block;font-size:8px;background:#fbece8;color:#a8452f;border-radius:999px;padding:2px 6px;margin-left:5px;font-weight:800;vertical-align:middle}
 .cartItem .comps{display:block;font-size:9px;color:#7b7468;margin-top:3px;line-height:1.5}
 .orderItems tr.comp td{color:#7b7468;font-size:9px;padding-top:2px;padding-bottom:2px;border-bottom:0}
+/* vídeos / apresentação */
+.mediaArea{display:grid;gap:16px;margin:18px 0 4px}
+.mediaCard{display:grid;grid-template-columns:1.45fr 1fr;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.mediaCard.full{grid-template-columns:1fr}
+.mediaPlayer{position:relative;background:#0b2a20;aspect-ratio:16/9}
+.mediaPlayer iframe,.mediaPlayer video,.mediaPlayer img{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover}
+.mediaPlayer img{object-fit:contain;background:#f3f0e8}
+.mediaText{padding:24px 26px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+.mediaText h3{margin:0;font-family:Georgia,serif;font-weight:500;font-size:26px;color:#0b4b37;line-height:1.2}
+.mediaText p{margin:0;font-size:13px;color:#5d655e;line-height:1.55}
+.mediaText .btn{align-self:flex-start;margin-top:6px}
+.mediaCard.full .mediaText{padding:16px 22px}
+.mediaEmpty{display:flex;align-items:center;justify-content:center;height:180px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px;background:#faf8f3}
+.mediaThumb{width:120px;aspect-ratio:16/9;position:relative;border-radius:6px;overflow:hidden;background:#0b2a20}.mediaThumb iframe,.mediaThumb video,.mediaThumb img{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover;pointer-events:none}
+@media(max-width:760px){.mediaCard{grid-template-columns:1fr}.mediaText{padding:16px}.mediaText h3{font-size:21px}}
 /* banner de kit (campanha) */
 .kitBanners{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:22px}
 .kitBanners.single{grid-template-columns:1fr}
@@ -708,6 +723,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
   <section id="home">
    <section id="kitBanners" class="kitBanners hidden"></section>
    <div id="heroBanner" class="hero"><div class="heroShade"></div><div class="heroText"><h1 id="heroTitle"></h1><p id="heroSubtitle"></p><button id="heroButton" onclick="goto('collections')"></button></div></div>
+   <section id="mediaArea" class="mediaArea hidden"></section>
    <div class="homeEditorialGrid">
     <section id="noticesArea" class="noticeArea editorialPanel">
      <div class="sectionHead editorialHead"><div><h2 id="noticesTitle">Avisos e novidades</h2><p>Eventos, lançamentos e comunicados Zionne.</p></div><button class="link" onclick="showAllNotices()">Ver todos →</button></div>
@@ -755,6 +771,7 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
    <button onclick="adminTab('intelAdmin',this)">◈ Inteligência Comercial</button>
    <button onclick="adminTab('collectionsAdmin',this)">♧ Coleções</button>
    <button onclick="adminTab('noticesAdmin',this)">✦ Avisos / Campanhas <span id="adminNoticeCount" class="adminBadgeCount">0</span></button>
+   <button onclick="adminTab('mediaAdmin',this)">▶ Vídeos / Apresentação <span id="adminMediaCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('inspirationAdmin',this)">▱ Inspirações <span id="adminInspireCount" class="adminBadgeCount">0</span></button>
    <button onclick="adminTab('homeAdmin',this)">▤ Página Inicial</button>
    <button onclick="adminTab('clientsAdmin',this)">♙ Clientes / Tokens</button>
@@ -802,6 +819,12 @@ b.g,.icM.g b{color:#2f7a3f}b.y,.icM.y b{color:#a56a00}b.r,.icM.r b{color:#b13e32
     <div class="adminTitle"><div><h1>Avisos e Campanhas</h1><p>Gerencie eventos, feiras, comunicados e campanhas exibidos na Home.</p></div><button class="btn primary" onclick="newNotice()">+ Novo aviso</button></div>
     <div class="panel"><div class="dateNote">Você pode definir uma data inicial e final. Fora desse período, o aviso deixa de ser exibido automaticamente no catálogo, mesmo permanecendo cadastrado no Admin.</div></div>
     <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Imagem</th><th>Título</th><th>Período</th><th>Ordem</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminNoticesBody"></tbody></table></div></div>
+   </section>
+
+   <section id="mediaAdmin" class="adminSection">
+    <div class="adminTitle"><div><h1>Vídeos / Apresentação</h1><p>Vídeo de apresentação ou GIF exibido logo abaixo do banner principal, na tela inicial do cliente.</p></div><button class="btn primary" onclick="newMedia()">+ Novo vídeo / GIF</button></div>
+    <div class="panel"><div class="dateNote">Use links do <b>YouTube</b> (pode ser "não listado"), <b>Vimeo</b>, <b>Google Drive</b> ou o endereço de um arquivo <b>.mp4</b> / <b>.gif</b>. Nada é armazenado no banco — o vídeo é exibido direto da origem.</div></div>
+    <div class="panel"><div class="tableWrap"><table class="adminTable"><thead><tr><th>Prévia</th><th>Título</th><th>Tipo</th><th>Layout</th><th>Período</th><th>Ordem</th><th>Status</th><th>Ações</th></tr></thead><tbody id="adminMediaBody"></tbody></table></div></div>
    </section>
 
    <section id="inspirationAdmin" class="adminSection">
